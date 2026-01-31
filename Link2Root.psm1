@@ -1,5 +1,6 @@
 # Internal Helper Functions #
 
+# The validation function used for `-Path` function parameters.
 function Test-PathParameter {
 
     [OutputType([bool])]
@@ -15,6 +16,8 @@ function Test-PathParameter {
     return $true
 
 }
+
+# The validation function used for `-Drive` function parameters.
 function Test-DriveParameter {
 
     [OutputType([bool])]
@@ -34,74 +37,207 @@ function Test-DriveParameter {
 
 # Exported Functions #
 
+<#
+    .SYNOPSIS
+    Get the path to a shortcut link at the root of the drive or the target of an existing one.
+
+    .DESCRIPTION
+    Get the path to a shortcut link of the given name on the designated disk drive.
+
+    When the `-GetLinkedPath` switch is used, the linked path of the existing
+    shortcut link on the root of the designated disk drive will be retrieved instead.
+
+    .INPUTS
+    None.
+    You cannot pipe any objects to `Get-Link2Root`.
+
+    .OUTPUTS
+    string.
+    `Get-Link2Root` returns a string containing either the path to the
+    shortcut link of the given name on the designated drive, or
+    the target of an existing one, depending on the presence or absence
+    of the `-GetLinkedPath` switch.
+
+    If the `-GetLinkedPath` switch is used and no shortcut link
+    with the given name exists on the designated disk drive,
+    `Get-Link2Root` returns `$null`.
+
+    .EXAMPLE
+    Get-Link2Root
+    C:\$
+
+    Retrieves the path to a shortcut link with the
+    name of "$" on the `C:` drive.
+
+    .EXAMPLE
+    Get-Link2Root X myShortcut
+    X:\myShortcut
+
+    Retrieves the path to a shortcut link with the
+    name of "myShortcut" on the `X:` drive.
+
+    .EXAMPLE
+    Get-Link2Root -GetLinkedPath
+    C:\path\to\target
+
+    Retrieves the linked path of an existing
+    shortcut link with the name of "$" on the `C:` drive.
+
+    .EXAMPLE
+    Get-Link2Root -Drive x -GetLinkedPath
+    ($null / No Output)
+
+    Retrieves the linked path of an existing
+    shortcut link with the name of "$" on the `X:` drive.
+
+    .LINK
+    Test-Link2Root
+
+    .LINK
+    New-Link2Root
+#>
 function Get-Link2Root {
 
+    [CmdletBinding()]
     [OutputType([string])]
     param(
-        <#
+         <#
             The letter of the disk drive in which
-            to place the shortcut link at the root of.
+            to retrieve the shortcut link at the root for.
 
             For example, `C` or `x`.
-
-            If omitted, defaults to the disk drive containing
-            the specified `-Path`.
         #>
         [Alias("DriveLetter")]
-        [Parameter(Mandatory, Position = 0)]
-        [PSDefaultValue(Help = "The Disk Drive containing the specified -Path.")]
+        [Parameter(Position = 0)]
         [ValidateScript({ Test-DriveParameter $_ })]
-        [string]$Drive,
+        [PSDefaultValue(Help = "The Disk Drive of the Current Working Directory.")]
+        [string]$Drive = (Split-Path (Resolve-Path $PWD) -Qualifier)[0],
         
         <#
-            The name of the shortcut link to create
+            The name of the shortcut link to retrieve
             at the root of the designated drive.
-
-            Defaults to "$".
         #>
         [Alias("Link")]
         [Parameter(Position = 1)]
         [ValidateNotNullOrEmpty()]
         [string]$Shortcut = "$",
 
+        <#
+            Indicates that the linked path of an existing
+            shortcut with the given name on the designated drive
+            should be returned instead.
+
+            By default and when this parameter is omitted,
+            this function returns the path to the shortcut itself.
+        #>
         [switch]$GetLinkedPath
     )
 
-    $path = (Join-Path "${Drive}:" $Shortcut)
+    # The path to the shortcut link.
+    [string]$path = (Join-Path "${Drive}:" $Shortcut)
 
     if (-not $GetLinkedPath) {
         return $path
     }
     else {
+        if (-not (Test-Path $path)) {
+            return $null
+        }
+
         return (Get-Item $path).Target
     }
 
 }
 
+<#
+    .SYNOPSIS
+    Test if a shortcut link exists on the root of the drive.
+
+    .DESCRIPTION
+    Test if a Hard Link or Directory Junction of the given name
+    exists on the root of the designated disk drive.
+
+    By default, this function only tests for the existence of
+    a shortcut link with the given name on the designated drive.
+    However, when the `-Path` parameter is provided, this function
+    will also test if the existing link points to the same `-Path` or not.
+
+    .INPUTS
+    string.
+    You can pipe a string containing a path to test
+    the shortcut link for to `Test-Link2Root`.
+
+    .OUTPUTS
+    bool.
+    `Test-Link2Root` returns `$true` if a shortcut link
+    with the given name exists on the designated disk drive.
+
+    If the `-Path` parameter is specified, the existing shortcut
+    link must also be pointing to the same location as the
+    specified `-Path`.
+
+    Otherwise, `Test-Link2Root` returns `$false`.
+
+    .EXAMPLE
+    Test-Link2Root
+    True
+
+    Tests for the existence of a shortcut link
+    with the name of "$" on the `C:` drive.
+
+    .EXAMPLE
+    Test-Link2Root "X" "myShortcut"
+    False
+
+    Tests for the existence of a shortcut link
+    with the name of "myShortcut" on the `X:` drive.
+
+    .EXAMPLE
+    Test-Link2Root -Path "X:/path/to/target"
+    True
+
+    Tests for the existence of a shortcut link
+    with the name of "$" on the `X:` drive
+    that is pointing to "X:/path/to/target".
+
+    .EXAMPLE
+    Resolve-Path "./testing" | Test-Link -Drive X
+    False
+
+    Tests for the existence of a shortcut link
+    with the name of "$" on the `X:` drive
+    that is pointing to "C:/path/to/target/testing"
+
+    .LINK
+    Get-Link2Root
+
+    .LINK
+    New-Link2Root
+#>
 function Test-Link2Root {
 
     [CmdletBinding(DefaultParameterSetName = "WithDrive")]
+    [OutputType([bool])]
     param(
         <#
             The letter of the disk drive in which
-            to place the shortcut link at the root of.
+            to search for the shortcut link at the root of.
 
             For example, `C` or `x`.
 
-            If omitted, defaults to the disk drive containing
-            the specified `-Path`.
+            If omitted, defaults to the disk drive of
+            the Current Working Directory.
         #>
         [Alias("DriveLetter")]
-        [Parameter(Mandatory, Position = 0, ParameterSetName = "WithDrive")]
-        [Parameter(Mandatory, Position = 0, ParameterSetName = "WithDriveAndPath")]
+        [Parameter(Position = 0, ParameterSetName = "WithDrive")]
+        [Parameter(Position = 0, ParameterSetName = "WithDriveAndPath")]
         [ValidateScript({ Test-DriveParameter $_ })]
-        [string]$Drive,
+        [PSDefaultValue(Help = "The Disk Drive of the Current Working Directory.")]
+        [string]$Drive = (Split-Path (Resolve-Path $PWD) -Qualifier)[0],
 
         <#
-            The name of the shortcut link to create
+            The name of the shortcut link to search for
             at the root of the designated drive.
-
-            Defaults to "$".
         #>
         [Alias("Link")]
         [Parameter(Position = 1)]
@@ -109,12 +245,11 @@ function Test-Link2Root {
         [string]$Shortcut = "$",
 
         <#
-            The path to create a link at the root of the drive to.
+            The target path to test any matching shortcut links for.
 
-            The path can point to either a file or directory.
-
-            If not specified, defaults to the directory the
-            function was called in (e.g., `$PWD`).
+            When this parameter is specified, this function will also
+            check if the existing shortcut link has the same path
+            as this parameter value.
         #>
         [Alias("FilePath", "FolderPath", "DirectoryPath", "Target")]
         [Parameter(Mandatory, Position = 2, ValueFromPipeline, ParameterSetName = "WithPath")]
@@ -127,8 +262,10 @@ function Test-Link2Root {
         $Drive = (Split-Path (Resolve-Path $Path) -Qualifier)[0]
     }
 
-    $shortcutPath = Get-Link2Root -Drive $Drive -Shortcut $Shortcut
-    $shortcutExists = (Test-Path $shortcutPath)
+    # The path to the shortcut link.
+    [string]$shortcutPath = Get-Link2Root -Drive $Drive -Shortcut $Shortcut
+    # Whether or not the shortcut link already exists
+    [bool]$shortcutExists = (Test-Path $shortcutPath)
 
     if ($PSCmdlet.ParameterSetName -eq "WithDrive") {
         return $shortcutExists
@@ -144,7 +281,7 @@ function Test-Link2Root {
 
 <#
     .SYNOPSIS
-    Create a new link on the root of the drive.
+    Create a new shortcut link on the root of the drive.
 
     .DESCRIPTION
     Creates a new Hard Link or Directory Junction
@@ -178,23 +315,41 @@ function Test-Link2Root {
 
     .EXAMPLE
     New-Link2Root
+    Creating Root Link: C:\$ ---> C:\... Success!
 
-    Creates a Directory Junction via "$" on the current drive
+    Creates a Directory Junction via "$" on the `C:` drive
     to the current working directory.
 
     .EXAMPLE
     New-Link2Root "X:\my-super-long-project-name\src" "projects" "C"
+    Creating Root Link: C:\projects ---> X:\my-super-long-project-name\src\... Success!
 
-    Creates a Directory Junction via "projects" on the "C:" drive
+    Creates a Directory Junction via "projects" on the `C:` drive
     to "X:\my-super-long-project-name\src".
 
     .EXAMPLE
     "X:\my-super-long-project-name\src\index.js" | New-Link2Root -NoClobber
+    Creating Root Link: X:\$ ---> X:\my-super-long-project-name\src\index.js... Success!
+    Root Link X:\$ ---> X:\my-super-long-project-name\src already exists!
 
-    Creates a Hard Link via "$" on the "X:" drive
+    Creates a Hard Link via "$" on the `X:` drive
     to "X:\my-super-long-project-name\src\index.js",
     while ensuring that any existing "$" shortcut
-    on the "X:" drive won't be overwritten.
+    on the `X:` drive won't be overwritten.
+
+    .EXAMPLE
+    $result = Join-Path X:\my-super-long-project-name src | New-Link2Root -PassThru -Silent
+
+    Creates a Directory Junction via "$" on the `X:` drive
+    to "X:\my-super-long-project-name\src", storing the
+    result as a boolean in a variable and preventing the
+    results of the function from being written to the host.
+
+    .LINK
+    Get-Link2Root
+
+    .LINK
+    Test-Link2Root
 #>
 function New-Link2Root {
     
@@ -205,21 +360,15 @@ function New-Link2Root {
             The path to create a link at the root of the drive to.
 
             The path can point to either a file or directory.
-
-            If not specified, defaults to the directory the
-            function was called in (e.g., `$PWD`).
         #>
         [Alias("FilePath", "FolderPath", "DirectoryPath", "Target")]
         [Parameter(ValueFromPipeline)]
-        [PSDefaultValue(Help = "The Current Working Directory")]
         [ValidateScript({ Test-PathParameter $_ })]
         [string]$Path = $PWD,
 
         <#
             The name of the shortcut link to create
             at the root of the designated drive.
-
-            Defaults to "$".
         #>
         [Alias("Link")]
         [ValidateNotNullOrEmpty()]
@@ -230,12 +379,9 @@ function New-Link2Root {
             to place the shortcut link at the root of.
 
             For example, `C` or `x`.
-
-            If omitted, defaults to the disk drive containing
-            the specified `-Path`.
         #>
-        [PSDefaultValue(Help = "The Disk Drive containing the specified -Path.")]
         [ValidateScript({ Test-DriveParameter $_ })]
+        [PSDefaultValue(Help = "The Disk Drive containing the specified -Path.")]
         [string]$Drive = (Split-Path (Resolve-Path $Path) -Qualifier)[0],
 
         <#
@@ -243,31 +389,34 @@ function New-Link2Root {
             same name already exists on the designated drive,
             it will not be overwritten.
 
-            By default and when this switch is omitted,
-            existing shortcuts of the same name will automatically
-            be overwritten by `New-Link2Root`.
+            By default and when this switch is omitted, existing shortcuts
+            of the same name will automatically be overwritten.
         #>
         [switch]$NoClobber,
 
         <#
-            Indicates that `New-Link2Root` should return a boolean value
+            Indicates that this function should return a boolean value
             indicating whether or not the specified location was successfully
             linked to the root of the designated drive or not.
 
             By default and when this switch is omitted,
-            `New-Link2Root` does not return anything.
+            this function does not return anything.
         #>
-        [switch]$PassThru
+        [switch]$PassThru,
     )
     
 
     # Variables #
 
-    $LINK_COLOR = [System.ConsoleColor]::Cyan
-    $ARROW_COLOR = [System.ConsoleColor]::Yellow
+    # The console color to use for the links in the output.
+    [System.ConsoleColor]$LINK_COLOR = [System.ConsoleColor]::Cyan
+    # The console color to use for arrows in the output.
+    [System.ConsoleColor]$ARROW_COLOR = [System.ConsoleColor]::Yellow
 
-    $resolvedPath = (Resolve-Path $Path)
-    $shortcutPath = (Join-Path "${Drive}:" $Shortcut)
+    # The resolved target path to be linked.
+    [string]$resolvedPath = (Resolve-Path $Path)
+    # The path to the shortcut link to be created.
+    [string]$shortcutPath = (Join-Path "${Drive}:" $Shortcut)
     
 
     # Helper Functions #
@@ -290,17 +439,21 @@ function New-Link2Root {
         [OutputType([bool])]
         param()
 
-        $pathType = & {
+        # The type of shortcut being created.
+        [string]$pathType = & {
+
             if (Test-Path $resolvedPath -Type Container) {
                 return "Junction"
             }
             else {
                 return "HardLink"
             }
+
         }
 
         if (Test-Link2Root -Drive $Drive -Shortcut $Shortcut) {
-            $existingLink = Get-Link2Root -Drive $Drive -Shortcut $Shortcut -GetLinkedPath
+            # The linked path of the existing shortcut link.
+            [string]$existingLink = Get-Link2Root -Drive $Drive -Shortcut $Shortcut -GetLinkedPath
 
             if (-not $NoClobber) {
                 Write-Verbose "Root Link Already Exists: $shortcutPath ---> $existingLink"
@@ -348,8 +501,10 @@ function New-Link2Root {
     # Main Function #
 
     if (-not (Test-Link2Root -Drive $Drive -Shortcut $Shortcut -Path $Path)) {
-        $confirm = ([int]$ConfirmPreference -le [int][System.Management.Automation.ConfirmImpact]::Medium)
-        $useVerboseOutput = ($VerbosePreference -or $WhatIfPreference -or $confirm)
+        # Indicates if the -Confirm switch is being used.
+        [bool]$confirm = ([int]$ConfirmPreference -le [int][System.Management.Automation.ConfirmImpact]::Medium)
+        # Indicates if the -Verbose or -WhatIf switches are being used.
+        [bool]$useVerboseOutput = ($VerbosePreference -or $WhatIfPreference -or $confirm)
 
         try {
             Write-Host "Creating Root Link: " -NoNewline
