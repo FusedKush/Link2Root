@@ -403,6 +403,17 @@ function New-Link2Root {
             this function does not return anything.
         #>
         [switch]$PassThru,
+
+        <#
+            Indicates that the results of the function should
+            not be written to the host.
+
+            By default and when this switch is omitted,
+            the results of the function are written to the host,
+            potentially in addition to being returned if
+            the `-PassThru` switch is also used.
+        #>
+        [switch]$Silent
     )
     
 
@@ -456,7 +467,9 @@ function New-Link2Root {
             [string]$existingLink = Get-Link2Root -Drive $Drive -Shortcut $Shortcut -GetLinkedPath
 
             if (-not $NoClobber) {
-                Write-Verbose "Root Link Already Exists: $shortcutPath ---> $existingLink"
+                if (-not $Silent) {
+                    Write-Verbose "Root Link Already Exists: $shortcutPath ---> $existingLink"
+                }
                 
                 if ($PSCmdlet.ShouldProcess(
                     "Removing Existing Root Link: $shortcutPath ---> $existingLink",
@@ -507,63 +520,69 @@ function New-Link2Root {
         [bool]$useVerboseOutput = ($VerbosePreference -or $WhatIfPreference -or $confirm)
 
         try {
-            Write-Host "Creating Root Link: " -NoNewline
-            Write-Host $shortcutPath -ForegroundColor $LINK_COLOR -NoNewline
-            Write-Host " ---> " -ForegroundColor $ARROW_COLOR -NoNewline
-            Write-Host $resolvedPath -ForegroundColor $LINK_COLOR -NoNewline
-            Write-Host "... " -NoNewline
-
-            if ($useVerboseOutput) {
-                Write-Host ""
+            if (-not $Silent) {
+                Write-Host "Creating Root Link: " -NoNewline
+                Write-Host $shortcutPath -ForegroundColor $LINK_COLOR -NoNewline
+                Write-Host " ---> " -ForegroundColor $ARROW_COLOR -NoNewline
+                Write-Host $resolvedPath -ForegroundColor $LINK_COLOR -NoNewline
+                Write-Host "... " -NoNewline
+                
+                if ($useVerboseOutput) {
+                    Write-Host ""
+                }
             }
 
             if (Set-RootLink -Verbose:$VerbosePreference) {
-                if ($useVerboseOutput) {
-                    if ($confirm) {
-                        Write-Host ""
-                    }
-
-                    Write-Host "Successfully" -ForegroundColor Green -NoNewline
-                    Write-Host " linked " -NoNewline
-                    Write-Host $shortcutPath -ForegroundColor $LINK_COLOR -NoNewline
-                    Write-Host " to " -NoNewline
-                    Write-Host $resolvedPath -ForegroundColor $LINK_COLOR
-                }
-                else {
-                    Write-Host "Success!" -ForegroundColor Green
-                }
+                if (-not $Silent) {
+                    if ($useVerboseOutput) {
+                        if ($confirm) {
+                            Write-Host ""
+                        }
     
+                        Write-Host "Successfully" -ForegroundColor Green -NoNewline
+                        Write-Host " linked " -NoNewline
+                        Write-Host $shortcutPath -ForegroundColor $LINK_COLOR -NoNewline
+                        Write-Host " to " -NoNewline
+                        Write-Host $resolvedPath -ForegroundColor $LINK_COLOR
+                    }
+                    else {
+                        Write-Host "Success!" -ForegroundColor Green
+                    }
+                }
                 if ($PassThru) {
                     return $true
                 }
             }
         }
         catch {
-            if ($useVerboseOutput) {
-                if ($confirm) {
-                    Write-Host ""
+            if (-not $Silent) {
+                if ($useVerboseOutput) {
+                    if ($confirm) {
+                        Write-Host ""
+                    }
+    
+                    Write-Host "Failed" -ForegroundColor Red -NoNewline
+                    Write-Host " to link " -NoNewline
+                    Write-Host $shortcutPath -ForegroundColor $LINK_COLOR -NoNewline
+                    Write-Host " to " -NoNewline
+                    Write-Host $resolvedPath -ForegroundColor $LINK_COLOR
                 }
-
-                Write-Host "Failed" -ForegroundColor Red -NoNewline
-                Write-Host " to link " -NoNewline
-                Write-Host $shortcutPath -ForegroundColor $LINK_COLOR -NoNewline
-                Write-Host " to " -NoNewline
-                Write-Host $resolvedPath -ForegroundColor $LINK_COLOR
+                else {
+                    Write-Host "Failed!" -ForegroundColor Red
+                }
+    
+                # Write-Host ""
+                Write-Host $_ -ForegroundColor Red
+                # Write-Error $_
             }
-            else {
-                Write-Host "Failed!" -ForegroundColor Red
-            }
-
-            Write-Host ""
-            # Write-Host $_ -ForegroundColor Red
-            Write-Error $_
         }
     }
     else {
-        Write-Host $shortcutPath -ForegroundColor $LINK_COLOR -NoNewline
-        Write-Host " is already linked to " -NoNewline
-        Write-Host $resolvedPath -ForegroundColor $LINK_COLOR
-
+        if (-not $Silent) {
+            Write-Host $shortcutPath -ForegroundColor $LINK_COLOR -NoNewline
+            Write-Host " is already linked to " -NoNewline
+            Write-Host $resolvedPath -ForegroundColor $LINK_COLOR
+        }
         if ($PassThru) {
             return $true
         }
