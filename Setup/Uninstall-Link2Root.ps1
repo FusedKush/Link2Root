@@ -148,7 +148,7 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
 
     # Remove the installation directory from the Current User's PATH
     if (-not $KeepPATH) {
-        if ($currentPATH -contains $installLocation) {
+        if ($currentPATH -split ";" -contains $installLocation) {
             if ($yesToAll -or $PSCmdlet.ShouldProcess(
                 "Removing Link2Root from ${env:USERNAME}'s PATH",
                 "Remove Link2Root from ${env:USERNAME}'s PATH",

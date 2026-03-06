@@ -91,7 +91,7 @@ try {
         [string]$currentPATH = [System.Environment]::GetEnvironmentVariable("PATH", [EnvironmentVariableTarget]::User)
         [bool]$scriptIsInstalled = (Test-Path $installLocation)
         [bool]$moduleIsInstalled = (Test-Path $modulePath)
-        [bool]$isAddedToPATH = $currentPATH -contains $installLocation
+        [bool]$isAddedToPATH = $currentPATH -split ";" -contains $installLocation
 
         # Install the script in the current user's local appdata folder
         if (-not $SkipScriptInstall) {
