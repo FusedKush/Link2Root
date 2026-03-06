@@ -363,8 +363,17 @@ function New-Link2Root {
         #>
         [Alias("FilePath", "FolderPath", "DirectoryPath", "Target")]
         [Parameter(ValueFromPipeline)]
+        [PSDefaultValue(Help = "The Current Working Directory, or one directory higher if within the root Link2Root directory.")]
         [ValidateScript({ Test-PathParameter $_ })]
-        [string]$Path = $PWD,
+        [string]$Path = (& {
+            [string]$defaultPath = $PWD
+
+            if ($defaultPath.EndsWith("Link2Root")) {
+                $defaultPath = Split-Path $defaultPath
+            }
+
+            return $defaultPath
+        }),
 
         <#
             The name of the shortcut link to create
