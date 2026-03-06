@@ -1,11 +1,13 @@
 <#
     .FORWARDHELPTARGETNAME New-Link2Root
 #>
-[CmdletBinding()]
 param()
 
-Push-Location
-Set-Location "../"
-Import-Module (Join-Path $PSScriptRoot "Link2Root.psm1")
-New-Link2Root @args
-Pop-Location
+Import-Module (Resolve-Path "$PSScriptRoot/../Link2Root.psm1")
+
+if ($args.Count -gt 0) {
+    New-Link2Root @args
+}
+else {
+    New-Link2Root
+}
