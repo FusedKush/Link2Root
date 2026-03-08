@@ -13,7 +13,7 @@
     - [Using the PowerShell Module](#using-the-powershell-module)
   - [*Link2Root* Installed Locally](#link2root-installed-locally)
     - [Installing *Link2Root*](#installing-link2root)
-    - [Using the `LinkThis2Root` Shortcut](#using-the-link2root-shortcut-1)
+    - [Using the `LinkThis2Root` Shortcut](#using-the-linkthis2root-shortcut)
     - [Using the `Link2Root` Command](#using-the-link2root-command-1)
     - [Using the PowerShell Module](#using-the-powershell-module-1)
     - [Uninstalling *Link2Root*](#uninstalling-link2root)
@@ -58,15 +58,14 @@ To open up the directory in File Explorer, you would then only need to click thr
 Start by downloading and unzipping the [latest release](https://github.com/FusedKush/Link2Root/releases/latest).
 
 Once downloaded, *Link2Root* can be used in several ways, depending on your environment and use-case:
-  - [Run Portably](#Link2Root-portable)
+  - [Run Portably](#link2root-portable)
     - [Using the `Link2Root` Shortcut](#using-the-link2root-shortcut)
     - [Using the `Link2Root` Command](#using-the-link2root-command)
     - [Using the PowerShell Scripts](#using-the-powershell-scripts)
     - [Using the PowerShell Module](#using-the-powershell-module)
   - [Installed Locally](#link2root-installed-locally)
-    - [Using the `Link2Root` Shortcut](#using-the-link2root-shortcut-1)
+    - [Using the `LinkThis2Root` Shortcut](#using-the-linkthis2root-shortcut)
     - [Using the `Link2Root` Command](#using-the-link2root-command-1)
-    - [Using the PowerShell Scripts](#using-the-powershell-scripts-1)
     - [Using the PowerShell Module](#using-the-powershell-module-1)
   - [As a PowerShell Module](#the-link2root-powershell-module)
 
@@ -271,7 +270,7 @@ False
 
 
 ### *Link2Root* Installed Locally
-While *Link2Root* can be [run portably](#Link2Root-portable), it can also be installed locally using the provided scripts, making it easier to create links to files and directories.
+While *Link2Root* can be [run portably](#link2root-portable), it can also be installed locally using the provided scripts, making it easier to create links to files and directories.
 
 > [!NOTE]
 > *Link2Root* is installed on a per-user basis.
@@ -299,9 +298,8 @@ When clicking on the `Shortcuts/Install.bat` script or running the installation 
 You can also run the installation script with the `-SkipScriptInstall`, `-SkipModuleInstall`, and `-SkipPATHUpdate` options to achieve the same effect.
 
 Once installed, you can invoke *Link2Root* in one of the following ways:
-  - [Using the `Link2Root` Shortcut](#using-the-link2root-shortcut-1)
+  - [Using the `LinkThis2Root` Shortcut](#using-the-linkthis2root-shortcut)
   - [Using the `Link2Root` Command](#using-the-link2root-command-1)
-  - [Using the PowerShell Scripts](#using-the-powershell-scripts-1)
   - [Using the PowerShell Module](#using-the-powershell-module-1)
 
 
