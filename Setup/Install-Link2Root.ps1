@@ -84,7 +84,7 @@ param(
         When this switch is used, `-SkipPATHUpdate` is implicitly
         included as well.
     #>
-    [bool]$SkipScriptInstall,
+    [switch]$SkipScriptInstall,
     
     <#
         Skip the installation of the Link2Root PowerShell Module
@@ -94,7 +94,7 @@ param(
         `Link2Root` and `LinkThis2Root` without importing them into
         the PowerShell session or script.
     #>
-    [bool]$SkipModuleInstall,
+    [switch]$SkipModuleInstall,
     
     <#
         Skip updating the current user's `PATH` to
@@ -106,7 +106,7 @@ param(
 
         This switch has no effect when the `-SkipScriptInstall` switch is used.
     #>
-    [bool]$SkipPATHUpdate
+    [switch]$SkipPATHUpdate
 )
 
 
