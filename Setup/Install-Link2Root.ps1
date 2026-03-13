@@ -294,9 +294,16 @@ try {
                     $tempFolder = New-TemporaryFolder
         
                     if (-not (Test-Path $modulesLocation)) {
+                        $psFolder = Split-Path $modulesLocation -Parent
+
                         Write-Verbose "No Existing PowerShell Module Folder Found!"
                         Write-Verbose "Creating PowerShell Module Folder in $modulesLocation..."
-                        New-Item -ItemType Directory -Path $modulesLocation -Name "Link2Root" @NO_RISK_PARAMS
+
+                        if (-not (Test-Path $psFolder)) {
+                            New-Item -ItemType Directory -Path (Split-Path $psFolder -Parent) -Name (Split-Path $psFolder -Leaf) @NO_RISK_PARAMS
+                        }
+
+                        New-Item -ItemType Directory -Path $psFolder -Name (Split-Path $modulesLocation -Leaf) @NO_RISK_PARAMS
                     }
                 
                     Write-Verbose "Copying $(Resolve-Path $PSScriptRoot\..\Link2Root.psm1) to Temporary Install Location..."
