@@ -300,7 +300,10 @@ try {
                     }
                 
                     Write-Verbose "Copying $(Resolve-Path $PSScriptRoot\..\Link2Root.psm1) to Temporary Install Location..."
-                    Copy-Item -Path "$PSScriptRoot\..\Link2Root.psm1" -Destination "$tempFolder\Link2Root.psm1" @itemParams | Out-Null
+                    Copy-Item -Path "$PSScriptRoot\..\Link2Root.psm1" -Destination "$tempFolder\Link2Root.psm1" @NO_RISK_PARAMS | Out-Null
+                    
+                    Write-Verbose "Copying $(Resolve-Path $PSScriptRoot\..\Link2Root.psd1) to Temporary Install Location..."
+                    Copy-Item -Path "$PSScriptRoot\..\Link2Root.psd1" -Destination "$tempFolder\Link2Root.psd1" @NO_RISK_PARAMS | Out-Null
         
                     if ($moduleIsInstalled) {
                         Write-Verbose "Removing Existing Link2Root PowerShell Module Files for Reinstall..."
