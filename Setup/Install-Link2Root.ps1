@@ -155,12 +155,6 @@ try {
     [string]$installLocation = & "$PSScriptRoot\Get-InstallLocation.ps1"
     [string]$modulePath = & "$PSScriptRoot\Get-InstallLocation.ps1" -GetModulePath
     [string]$modulesLocation = Split-Path $modulePath -Parent
-    [hashtable]$itemParams = & {
-        $itemParams = $NO_RISK_PARAMS.Clone()
-        
-        # $itemParams["Force"] = $true
-        return $itemParams
-    }
     [bool]$success = $false
     [bool]$yesToAll = $false
     [bool]$noToAll = $false
@@ -230,7 +224,7 @@ try {
                     # New-Item -Path $installLocation -ItemType Directory @itemParams | Out-Null
         
                     foreach ($copyArgs in $copyFileArgs) {
-                        $fullArgs = $copyArgs + $itemParams
+                        $fullArgs = $copyArgs + $NO_RISK_PARAMS
         
                         Write-Verbose "Copying $(Resolve-Path $fullArgs["Path"]) to Temporary Install Location..."
                         Copy-Item @fullArgs | Out-Null
@@ -239,16 +233,12 @@ try {
                     if ($scriptIsInstalled) {
                         Write-Verbose "Removing Existing Link2Root Installation Files for Reinstall..."
                         & "$PSScriptRoot\Uninstall-Link2Root.ps1" -KeepModule -KeepPATH -Silent -Force
-                        # Remove-Item -Path $installLocation -Recurse @NO_RISK_PARAMS
                     }
         
                     $tempFolders.Add($tempFolder, $installLocation)
-                    # Write-Verbose "Moving Files to Install Location..."
-                    # Move-Item -Path $tempFolder -Destination $installLocation | Out-Null
                     $success = $true
                 
                     if (-not $Silent) {
-                        # Write-Host ""
                         Write-Host "[" -NoNewline
                         Write-Host "+" -NoNewline -ForegroundColor Green
                         Write-Host "] " -NoNewline
@@ -259,7 +249,6 @@ try {
                     }
                 }
                 elseif (-not $Silent) {
-                    # Write-Host ""
                     Write-Host "[" -NoNewline
                     Write-Host "-" -NoNewline -ForegroundColor Green
                     Write-Host "] " -NoNewline
@@ -309,19 +298,15 @@ try {
                         New-Item -Path $modulesLocation -ItemType Directory @itemParams
                     }
                 
-                    # New-Item -Path $modulePath -ItemType Directory @itemParams | Out-Null
                     Write-Verbose "Copying $(Resolve-Path $PSScriptRoot\..\Link2Root.psm1) to Temporary Install Location..."
                     Copy-Item -Path "$PSScriptRoot\..\Link2Root.psm1" -Destination "$tempFolder\Link2Root.psm1" @itemParams | Out-Null
         
                     if ($moduleIsInstalled) {
                         Write-Verbose "Removing Existing Link2Root PowerShell Module Files for Reinstall..."
                         & "$PSScriptRoot\Uninstall-Link2Root.ps1" -KeepInstall -KeepPATH -Silent -Force
-                        # Remove-Item -Path $modulePath -Recurse @NO_RISK_PARAMS
                     }
         
                     $tempFolders.Add($tempFolder, $modulePath)
-                    # Write-Verbose "Moving Files to PowerShell Modules Folder..."
-                    # Move-Item -Path $tempFolder -Destination $modulePath | Out-Null
                     $success = $true
         
                     if (-not $Silent) {
@@ -336,7 +321,6 @@ try {
                     }
                 }
                 elseif (-not $Silent) {
-                    # Write-Host ""
                     Write-Host "[" -NoNewline
                     Write-Host "-" -NoNewline -ForegroundColor Green
                     Write-Host "] " -NoNewline
@@ -383,10 +367,6 @@ try {
                     if ($isAddedToPATH) {
                         Write-Verbose "Removing Link2Root from Current User's PATH for Reinstall..."
                         & "$PSScriptRoot\Uninstall-Link2Root.ps1" -KeepInstall -KeepModule -Silent -Force
-                        # $currentPATHContents = $currentPATH -split ";"
-    
-                        # $currentPATHContents.Remove($installLocation)
-                        # [System.Environment]::SetEnvironmentVariable("PATH", $currentPATHContents -join ";");
                     }
     
                     Write-Verbose "Updating Current User's PATH..."

@@ -486,13 +486,6 @@ function New-Link2Root {
                     "Confirm`nAre you sure you want to perform this action?"
                 )) {
                     (Get-Item $shortcutPath).Delete()
-
-                    # if (Test-Path $shortcutPath -Type Container) {
-                    #     [System.IO.Directory]::Delete($shortcutPath)
-                    # }
-                    # else {
-                    #     [System.IO.File]::Delete($shortcutPath)
-                    # }
                 }
                 elseif (!$WhatIfPreference) {
                     throw "The operation was cancelled."
@@ -580,9 +573,7 @@ function New-Link2Root {
                     Write-Host "Failed!" -ForegroundColor Red
                 }
     
-                # Write-Host ""
                 Write-Host $_ -ForegroundColor Red
-                # Write-Error $_
             }
         }
     }
