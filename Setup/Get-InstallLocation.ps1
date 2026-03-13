@@ -51,7 +51,7 @@ if (-not $GetModulePath) {
 else {
     # Search for the first user-specific module location
     foreach ($path in ($env:PSModulePath -split ";")) {
-        if ($path -ilike "*\Documents\PowerShell*" -or $path -ilike "*\Documents\PowerShell*") {
+        if ($path -ilike "*\Documents\PowerShell*" -or $path -ilike "*\Documents\WindowsPowerShell*") {
             return (Join-Path $path $MODULE_NAME)
         }
     }
