@@ -85,7 +85,7 @@ Once downloaded, *Link2Root* can be used in several ways, depending on your envi
   1. Move the `Link2Root/` folder into the directory you want to create a link to.
   2. Double-click on the `Link2Root.bat` file in the `Link2Root/` folder.
   
-<video controls src="https://github.com/user-attachments/assets/e8d01898-79b0-4920-a724-ea3591929e58" title="Demonstration of Using the Link2Root Shortcut" width="1000px" autoplay loop></video>
+<video controls src="https://github.com/user-attachments/assets/e8d01898-79b0-4920-a724-ea3591929e58" title="Demonstration of Using the Link2Root Shortcut" width="1000px"></video>
 
 
 #### Using the `Link2Root` Command
@@ -126,6 +126,33 @@ Creating Root Link: X:\$.bat ---> X:\Projects\Personal\My-Super-Cool-Project\ass
 X:\Projects\Personal\My-Super-Cool-Project\assets\scripts> \$.bat
 Hello, World!
 Press any key to continue . . .
+```
+
+You can also use the `/Get`, `/Test`, and `/Remove` options to manage existing links:
+```
+X:\> .\Link2Root\Link2Root /Get
+X:\$
+
+X:\> .\Link2Root\Link2Root /Get -GetLinkedPath
+X:\Projects\Personal\My-Super-Cool-Project\assets\scripts
+
+X:\> .\Link2Root\Link2Root /Get -Shortcut "$.bat" -GetLinkedPath
+X:\Projects\Personal\My-Super-Cool-Project\assets\scripts\my-script.bat
+
+X:\> .\Link2Root\Link2Root /Test
+True
+
+X:\> .\Link2Root\Link2Root /Test -Shortcut "$.bat"
+True
+
+X:\> .\Link2Root\Link2Root /Test -Drive C
+False
+
+X:\> .\Link2Root\Link2Root /Remove
+Removing Root Link: X:\$ ---> X:\Projects\Personal\My-Super-Cool-Project\assets\scripts... Success!
+
+X:\> .\Link2Root\Link2Root /Remove -Shortcut "$.bat"
+Removing Root Link: X:\$.bat ---> X:\Projects\Personal\My-Super-Cool-Project\assets\scripts\my-script.bat... Success!
 ```
 
 For more information about the available options when invoking the `Link2Root` command, see the [`Link2Root` Command Reference](#link2root-command-reference).
@@ -176,7 +203,7 @@ Hello, World!
 Press any key to continue . . .
 ```
 
-You can also use the `Get-Link2Root.ps1` and `Test-Link2Root.ps1` to retrieve information about existing links:
+You can also use the `Get-Link2Root.ps1`, `Test-Link2Root.ps1`, and `Remove-Link2Root.ps1` scripts to manage existing links:
 ```
 X:\> .\Link2Root\Scripts\Get-Link2Root.ps1
 X:\$
@@ -195,6 +222,12 @@ True
 
 X:\> .\Link2Root\Scripts\Test-Link2Root.ps1 -Drive C
 False
+
+X:\> .\Link2Root\Scripts\Remove-Link2Root.ps1
+Removing Root Link: X:\$ ---> X:\Projects\Personal\My-Super-Cool-Project\assets\scripts... Success!
+
+X:\> .\Link2Root\Scripts\Remove-Link2Root.ps1 -Shortcut "$.bat"
+Removing Root Link: X:\$.bat ---> X:\Projects\Personal\My-Super-Cool-Project\assets\scripts\my-script.bat... Success!
 ```
 
 
@@ -266,6 +299,12 @@ True
 
 X:\> Test-Link2Root -Drive C
 False
+
+X:\> Remove-Link2Root
+Removing Root Link: X:\$ ---> X:\Projects\Personal\My-Super-Cool-Project\assets\scripts... Success!
+
+X:\> Remove-Link2Root -Shortcut "$.bat"
+Removing Root Link: X:\$.bat ---> X:\Projects\Personal\My-Super-Cool-Project\assets\scripts\my-script.bat... Success!
 ```
 
 
@@ -351,6 +390,33 @@ Hello, World!
 Press any key to continue . . .
 ```
 
+You can also use the `/Get`, `/Test`, and `/Remove` options to manage existing links:
+```
+X:\> Link2Root /Get
+X:\$
+
+X:\> Link2Root /Get -GetLinkedPath
+X:\Projects\Personal\My-Super-Cool-Project\assets\scripts
+
+X:\> Link2Root /Get -Shortcut "$.bat" -GetLinkedPath
+X:\Projects\Personal\My-Super-Cool-Project\assets\scripts\my-script.bat
+
+X:\> Link2Root /Test
+True
+
+X:\> Link2Root /Test -Shortcut "$.bat"
+True
+
+X:\> Link2Root /Test -Drive C
+False
+
+X:\> Link2Root /Remove
+Removing Root Link: X:\$ ---> X:\Projects\Personal\My-Super-Cool-Project\assets\scripts... Success!
+
+X:\> Link2Root /Remove -Shortcut "$.bat"
+Removing Root Link: X:\$.bat ---> X:\Projects\Personal\My-Super-Cool-Project\assets\scripts\my-script.bat... Success!
+```
+
 For more information about the available options when invoking the `Link2Root` command, see the [`Link2Root` Command Reference](#link2root-command-reference).
 
 
@@ -416,6 +482,12 @@ True
 
 X:\> Test-Link2Root -Drive C
 False
+
+X:\> Remove-Link2Root
+Removing Root Link: X:\$ ---> X:\Projects\Personal\My-Super-Cool-Project\assets\scripts... Success!
+
+X:\> Remove-Link2Root -Shortcut "$.bat"
+Removing Root Link: X:\$.bat ---> X:\Projects\Personal\My-Super-Cool-Project\assets\scripts\my-script.bat... Success!
 ```
 
 
@@ -504,6 +576,12 @@ True
 
 X:\> Test-Link2Root -Drive C
 False
+
+X:\> Remove-Link2Root
+Removing Root Link: X:\$ ---> X:\Projects\Personal\My-Super-Cool-Project\assets\scripts... Success!
+
+X:\> Remove-Link2Root -Shortcut "$.bat"
+Removing Root Link: X:\$.bat ---> X:\Projects\Personal\My-Super-Cool-Project\assets\scripts\my-script.bat... Success!
 ```
 
 
@@ -681,12 +759,80 @@ When this parameter is specified, the commands will *also* check if the existing
 These commands support the [*Common PowerShell Parameters*](https://go.microsoft.com/fwlink/?LinkID=113216), which differ based on the version of PowerShell you are using.
 
 
+#### `Link2Root /Remove`, `Remove-Link2Root.ps1`, and `Remove-Link2Root`
+```
+Link2Root [/R | /Remove] [/?] [/P | /NoPause]
+          [[-Drive] <String>] [[-Shortcut] <String>] [-PassThru] [-Silent]
+          [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+```
+Remove-Link2Root.ps1 [[-Drive] <String>] [[-Shortcut] <String>] [-PassThru] [-Silent]
+                     [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+```
+Remove-Link2Root [[-Drive] <String>] [[-Shortcut] <String>] [-PassThru] [-Silent]
+                 [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+
+##### `/?`
+Display help information for the command.
+
+
+##### `/P | /NoPause`
+Skip pausing the command at the very end.
+
+
+##### `-Drive <String>`
+The letter of the disk drive in which to search for the shortcut link at the root of.
+
+For example, `C` or `x`.
+
+Defaults to the disk drive containing the Current Working Directory.
+
+
+##### `-Shortcut <String>`
+The name of the shortcut link to remove at the root of the designated drive.
+
+Defaults to `$`.
+
+
+##### `-PassThru`
+Indicates that this function should return a boolean value indicating whether or not the specified location was successfully linked to the root of the designated drive or not.
+
+By default and when this switch is omitted, the commands do not return anything.
+
+
+##### `-Silent`
+Indicates that the results of the function should not be written to the host.
+
+By default and when this switch is omitted, the results of the command are written to the host, potentially in addition to being returned if the [`-PassThru`](#-passthru-1) switch is also used.
+
+
+##### `-WhatIf`
+Displays a message that describes the effect of the command, instead of executing the command.
+
+For more information, see [PowerShell Risk Management Parameters](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_commonparameters?view=powershell-5.1#risk-management-parameters).
+
+
+##### `-Confirm`
+Prompts you for confirmation before executing the command.
+
+For more information, see [PowerShell Risk Management Parameters](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_commonparameters?view=powershell-5.1#risk-management-parameters).
+
+
+##### `<CommonParameters>`
+These commands support the [*Common PowerShell Parameters*](https://go.microsoft.com/fwlink/?LinkID=113216), which differ based on the version of PowerShell you are using.
+
+
 ## Frequently Asked Questions
 1. > File Link2Root\Scripts\New-Link2Root.ps1 cannot be loaded because running scripts is disabled on this system.
    > 
    > File Link2Root\Scripts\Get-Link2Root.ps1 cannot be loaded because running scripts is disabled on this system.
    >
    > File Link2Root\Scripts\Test-Link2Root.ps1 cannot be loaded because running scripts is disabled on this system.
+   >
+   > File Link2Root\Scripts\Remove-Link2Root.ps1 cannot be loaded because running scripts is disabled on this system.
    >
    > File Link2Root\Link2Root.psm1 cannot be loaded because running scripts is disabled on this system.
    
