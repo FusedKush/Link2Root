@@ -296,7 +296,7 @@ try {
                     if (-not (Test-Path $modulesLocation)) {
                         Write-Verbose "No Existing PowerShell Module Folder Found!"
                         Write-Verbose "Creating PowerShell Module Folder in $modulesLocation..."
-                        New-Item -Path $modulesLocation -ItemType Directory @NO_RISK_PARAMS
+                        New-Item -ItemType Directory -Path $modulesLocation -Name "Link2Root" @NO_RISK_PARAMS
                     }
                 
                     Write-Verbose "Copying $(Resolve-Path $PSScriptRoot\..\Link2Root.psm1) to Temporary Install Location..."

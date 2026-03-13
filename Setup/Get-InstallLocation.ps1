@@ -27,7 +27,7 @@
 
     .EXAMPLE
     .\Get-InstallLocation.ps1 -GetModulePath
-    C:\Users\FusedKush\Documents\WindowsPowerShell\Modules\Link2Root
+    C:\Users\FusedKush\Documents\PowerShell\Modules\Link2Root
 #>
 param(
     <#
@@ -51,7 +51,7 @@ if (-not $GetModulePath) {
 else {
     # Search for the first user-specific module location
     foreach ($path in ($env:PSModulePath -split ";")) {
-        if ($path -inotlike "C:\Program Files*" -and $path -inotlike "C:\Windows*") {
+        if ($path -ilike "*\Documents\PowerShell*" -or $path -ilike "*\Documents\PowerShell*") {
             return (Join-Path $path $MODULE_NAME)
         }
     }
