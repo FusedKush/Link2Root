@@ -1,17 +1,96 @@
-[CmdletBinding(SupportsShouldProcess)]
+<#
+    .SYNOPSIS
+    Uninstall Link2Root for the current user
+
+    .DESCRIPTION
+    Uninstall Link2Root from the current machine for the current user.
+
+    Note that you will always be prompted for confirmation before
+    beginning the uninstallation. If needed, you can skip the confirmation
+    using the `-Force` switch.
+
+    You can also specify which individual components for Link2Root are
+    to be removed. To do so, you can either use the `-Confirm` switch
+    and manually skip the necessary components, or use the `-KeepInstall`,
+    `-KeepModule`, and `-KeepPATH` switches.
+
+    .INPUTS
+    You cannot pipe any objects to `Uninstall-Link2Root.ps1`.
+
+    .OUTPUTS
+    None.
+    By default, `Uninstall-Link2Root.ps1` doesn't generate any output.
+
+    .OUTPUTS
+    bool.
+    When the `-PassThru` switch is used, `Uninstall-Link2Root.ps1` returns
+    `$true` if the uninstallation was successful or `$false` if it was not.
+#>
+[CmdletBinding(DefaultParameterSetName = "WithoutKeepingInstall", SupportsShouldProcess)]
 param(
+    <#
+        Keep the installation of Link2Root in the
+        current user's `AppData/Local` folder.
+
+        Using this option will allow you to continue using Link2Root
+        without having to move or navigate to the downloaded `Link2Root/` folder.
+    #>
+    [Parameter(ParameterSetName = "KeepingInstall", Mandatory)]
     [switch]$KeepInstall,
 
+    <#
+        Keep the installation of the Link2Root PowerShell Module
+        in the current user's PowerShell Modules.
+
+        Using this option will allow you to continue using `Link2Root`
+        and `LinkThis2Root` without having to import them into
+        the PowerShell session or script.
+    #>
     [switch]$KeepModule,
 
+    <#
+        Keep the Link2Root Installation Directory within
+        the current user's `PATH`.
+        
+        Using this option will allow you to continue using
+        the `Link2Root` command without having to move or navigate
+        to the downloaded `Link2Root/` folder.
+
+        This switch can only be used if `-KeepInstall` is used as well.
+    #>
+    [Parameter(ParameterSetName = "KeepingInstall")]
     [switch]$KeepPATH,
 
+    <#
+        Skip all confirmation prompts and immediately
+        proceed with the Link2Root uninstallation.
+
+        If this switch is used with the `-Confirm` switch, only
+        the *initial* confirmation prompt will be skipped,
+        and you will still be prompted for confirmation before
+        each individual component is uninstalled.
+    #>
     [switch]$Force,
 
+    <#
+        Indicates that this function should return a boolean value
+        indicating whether or not the uninstallation was successful.
+
+        By default and when this switch is omitted, this function
+        does not generate any output.
+    #>
     [switch]$PassThru,
     
+    <#
+        Suppress all non-error output.
+
+        By default and when this switch is omitted, information will
+        be output to the host indicating the progress and status
+        of the uninstallation and the individual components for Link2Root.
+    #>
     [switch]$Silent
 )
+
 
 [hashtable]$NO_RISK_PARAMS = @{
     WhatIf = $false
@@ -25,6 +104,7 @@ param(
 [bool]$failed = $false
 [bool]$yesToAll = $false
 [bool]$noToAll = $false
+
 
 $ErrorActionPreference = "Stop"
 

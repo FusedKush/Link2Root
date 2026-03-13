@@ -1,25 +1,114 @@
-[CmdletBinding(SupportsShouldProcess)]
+<#
+    .SYNOPSIS
+    Install Link2Root for the current user
+
+    .DESCRIPTION
+    Install Link2Root on the current machine for the current user.
+
+    By default, the installation will immediately be aborted
+    if the specified components have already been installed
+    for the current user on the computer. To force a reinstallation
+    of the designated components, use the `-Reinstall` switch.
+
+    Note that you will always be prompted for confirmation before
+    beginning the installation. If needed, you can skip the confirmation
+    using the `-Force` switch.
+
+    You can also specify which individual components for Link2Root are
+    to be installed. To do so, you can either use the `-Confirm` switch
+    and manually skip the necessary components, or use the `-SkipScriptInstall`,
+    `-SkipModuleInstall`, and `SkipPATHUpdate` switches.
+
+    .INPUTS
+    You cannot pipe any objects to `Install-Link2Root.ps1`.
+
+    .OUTPUTS
+    None.
+    By default, `Install-Link2Root.ps1` doesn't generate any output.
+
+    .OUTPUTS
+    bool.
+    When the `-PassThru` switch is used, `Install-Link2Root.ps1` returns
+    `$true` if the installation was successful or `$false` if it was not.
+#>#>
+[CmdletBinding(DefaultParameterSetName = "WithPATHUpdate", SupportsShouldProcess)]
 param(
+    <#
+        Indicates that all of the specified components of Link2Root
+        should be reinstalled for the current user.
+
+        By default and when this switch is omitted, this installation
+        will immediately be aborted if all of the designed components
+        for Link2Root are already installed.
+    #>
     [Alias("Repair")]
     [switch]$Reinstall,
     
+    <#
+        Skip all confirmation prompts and immediately
+        proceed with the Link2Root installation.
+
+        If this switch is used with the `-Confirm` switch, only
+        the *initial* confirmation prompt will be skipped,
+        and you will still be prompted for confirmation before
+        each individual component is installed.
+    #>
     [switch]$Force,
     
+    <#
+        Indicates that this function should return a boolean value
+        indicating whether or not the installation was successful.
+
+        By default and when this switch is omitted, this function
+        does not generate any output.
+    #>
     [switch]$PassThru,
     
+    <#
+        Suppress all non-error output.
+
+        By default and when this switch is omitted, information will
+        be output to the host indicating the progress and status
+        of the installation and the individual components for Link2Root.
+    #>
     [switch]$Silent,
     
+    <#
+        Skip the installation of Link2Root in the
+        current user's `AppData/Local` folder.
+
+        Using this option will prevent you from being able to use
+        Link2Root without having to move or navigate to the
+        downloaded `Link2Root/` folder.
+
+        When this switch is used, `-SkipPATHUpdate` is implicitly
+        included as well.
+    #>
     [bool]$SkipScriptInstall,
     
+    <#
+        Skip the installation of the Link2Root PowerShell Module
+        in the current user's PowerShell Modules.
+
+        Using this option will prevent you from being able to use
+        `Link2Root` and `LinkThis2Root` without importing them into
+        the PowerShell session or script.
+    #>
     [bool]$SkipModuleInstall,
     
+    <#
+        Skip updating the current user's `PATH` to
+        add the Link2Root Installation Directory.
+
+        Using this option will prevent you from being able to use
+        the `Link2Root` command without having to move or navigate to
+        the downloaded `Link2Root/` folder.
+
+        This switch has no effect when the `-SkipScriptInstall` switch is used.
+    #>
     [bool]$SkipPATHUpdate
 )
 
-enum InstallerVerb {
-    Install
-    Repair
-}
 
 enum InstallVerb {
     Install
@@ -61,9 +150,8 @@ if ((& "$PSScriptRoot\Test-Installation.ps1") -and -not $Reinstall) {
     }
 }
 
-[InstallerVerb]$installerVerb = "Install"
-
 try {
+    [InstallVerb]$installerVerb = "Install"
     [string]$installLocation = & "$PSScriptRoot\Get-InstallLocation.ps1"
     [string]$modulePath = & "$PSScriptRoot\Get-InstallLocation.ps1" -GetModulePath
     [string]$modulesLocation = Split-Path $modulePath -Parent
@@ -84,7 +172,7 @@ try {
         $ConfirmPreference = "None"
     }
     if ($Reinstall -and ((Test-Path $installLocation) -or (Test-Path $modulePath))) {
-        $installerVerb = "Repair"
+        $installerVerb = "Reinstall"
     }
 
     if ($Force -or $PSCmdlet.ShouldContinue("$installerVerb Link2Root", "Confirm", [ref]$yesToAll, [ref]$noToAll)) {
