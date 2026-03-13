@@ -228,19 +228,18 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
 
     # Remove the installation directory from the Current User's PATH
     if (-not $KeepPATH) {
-        if ($currentPATH -split ";" -contains $installLocation) {
+        [string[]]$currentPATHContents = $currentPATH -split ";"
+
+        if ($currentPATHContents -contains $installLocation) {
             if ($yesToAll -or $PSCmdlet.ShouldProcess(
                 "Removing Link2Root from ${env:USERNAME}'s PATH",
                 "Remove Link2Root from ${env:USERNAME}'s PATH",
                 "Confirm`nAre you sure you want to perform this action?"
             )) {
                 try {
-                    [string[]]$currentPATHContents = $currentPATH -split ";"
-
-                    $currentPATHContents.Remove($installLocation)
                     [System.Environment]::SetEnvironmentVariable(
                         "PATH",
-                        $currentPATHContents -join ";",
+                        $currentPATHContents.Where({ $_ -ine $installLocation }) -join ";",
                         [EnvironmentVariableTarget]::User
                     );
                     $success = $true
@@ -249,7 +248,7 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
                         Write-Host "[" -NoNewline
                         Write-Host "+" -NoNewline -ForegroundColor Green
                         Write-Host "] " -NoNewline
-                        Write-Host "Successfully removed" -NoNewline -ForegroundColor Green
+                        Write-Host "Successfully removed " -NoNewline -ForegroundColor Green
                         Write-Host "Link2Root" -NoNewline -ForegroundColor Yellow
                         Write-Host " from " -NoNewline
                         Write-Host "${env:USERNAME}'s PATH" -ForegroundColor Cyan
@@ -262,10 +261,10 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
                         Write-Host "[" -NoNewline
                         Write-Host "-" -NoNewline -ForegroundColor Red
                         Write-Host "] " -NoNewline
-                        Write-Host "Failed to remove" -NoNewline -ForegroundColor Red
+                        Write-Host "Failed to remove " -NoNewline -ForegroundColor Red
                         Write-Host "Link2Root" -NoNewline -ForegroundColor Yellow
                         Write-Host " from " -NoNewline
-                        Write-Host "${env:USERNAME}'s PATH" -ForegroundColor Cyan
+                        Write-Host "${env:USERNAME}'s PATH" -NoNewline -ForegroundColor Cyan
                         Write-Host "!"
                         Write-Host ""
                         Write-Host $_ -ForegroundColor Red

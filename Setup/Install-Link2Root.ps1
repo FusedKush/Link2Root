@@ -171,9 +171,10 @@ try {
 
     if ($Force -or $PSCmdlet.ShouldContinue("$installerVerb Link2Root", "Confirm", [ref]$yesToAll, [ref]$noToAll)) {
         [string]$currentPATH = [System.Environment]::GetEnvironmentVariable("PATH", [EnvironmentVariableTarget]::User)
+        [string[]]$currentPATHContents = $currentPATH -split ";"
         [bool]$scriptIsInstalled = (Test-Path $installLocation)
         [bool]$moduleIsInstalled = (Test-Path $modulePath)
-        [bool]$isAddedToPATH = $currentPATH -split ";" -contains $installLocation
+        [bool]$isAddedToPATH = $currentPATHContents -contains $installLocation
 
         # Install the script in the current user's local appdata folder
         if (-not $SkipScriptInstall) {
@@ -295,7 +296,7 @@ try {
                     if (-not (Test-Path $modulesLocation)) {
                         Write-Verbose "No Existing PowerShell Module Folder Found!"
                         Write-Verbose "Creating PowerShell Module Folder in $modulesLocation..."
-                        New-Item -Path $modulesLocation -ItemType Directory @itemParams
+                        New-Item -Path $modulesLocation -ItemType Directory @NO_RISK_PARAMS
                     }
                 
                     Write-Verbose "Copying $(Resolve-Path $PSScriptRoot\..\Link2Root.psm1) to Temporary Install Location..."
@@ -372,7 +373,7 @@ try {
                     Write-Verbose "Updating Current User's PATH..."
                     [System.Environment]::SetEnvironmentVariable(
                         "PATH",
-                        "$currentPATH;$installLocation",
+                        ($currentPATHContents + @($installLocation)) -join ";",
                         [EnvironmentVariableTarget]::User
                     );
                     $success = $true
@@ -431,9 +432,14 @@ catch {
         Write-Host "Failed to $($installerVerb.ToString().ToLower()) " -NoNewline -ForegroundColor Red
         Write-Host "Link2Root" -NoNewline -ForegroundColor Cyan
         Write-Host "!" -ForegroundColor Red
+        
+        if ($success) {
+            Write-Host "Rolling back changes..." -ForegroundColor Yellow
+        }
+
         Write-Host ""
     }
-    
+
     if ($PassThru) {
         Write-Host $_ -ForegroundColor Red
         return $false
