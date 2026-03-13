@@ -5,8 +5,6 @@
 SET "InstallPath=%LOCALAPPDATA%\PowerShell Link2Root"
 SET "ScriptPath=%InstallPath%\Link2Root.bat"
 
-ECHO "%ScriptPath%"
-
 IF NOT EXIST "%ScriptPath%" (
     ECHO ERROR: Link2Root is not properly installed.
     ECHO.
