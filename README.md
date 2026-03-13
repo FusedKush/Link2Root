@@ -85,7 +85,7 @@ Once downloaded, *Link2Root* can be used in several ways, depending on your envi
   1. Move the `Link2Root/` folder into the directory you want to create a link to.
   2. Double-click on the `Link2Root.bat` file in the `Link2Root/` folder.
   
-<video controls src="https://github.com/user-attachments/assets/e8d01898-79b0-4920-a724-ea3591929e58" title="Demonstration of Using the Link2Root Shortcut" width="1000px"></video>
+<video controls src="https://github.com/user-attachments/assets/614b18c8-dd0a-4b56-a8dc-367093b0592e" title="Demonstration of Using the Link2Root Shortcut" width="1000px" autoplay loop></video>
 
 
 #### Using the `Link2Root` Command
@@ -349,7 +349,7 @@ Once installed, you can invoke *Link2Root* in one of the following ways:
   1. Move the `LinkThis2Root.bat` file into the directory you want to create a link to.
   2. Double-click on the `LinkThis2Root.bat` file.
   
-<video controls src="https://github.com/user-attachments/assets/85438de7-33c4-4eaf-971a-33ba82e7fafa" title="Demonstration of Using the LinkThis2Root Shortcut" width="1000px"></video>
+<video controls src="https://github.com/user-attachments/assets/3bf0c648-56c5-488c-af6f-cd0b52ff8d6f" title="Demonstration of Using the LinkThis2Root Shortcut" width="1000px" autoplay loop></video>
 
 
 #### Using the `Link2Root` Command
