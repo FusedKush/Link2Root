@@ -38,6 +38,14 @@ FOR %%A IN (%*) DO (
             SET "CmdletName=Test-%BASE_CMDLET_NAME%"
             SET "CmdletType=Scripts"
             SET /A ProcessedArg=1
+        ) ELSE IF /I "%%~A" == "/R" (
+            SET "CmdletName=Remove-%BASE_CMDLET_NAME%"
+            SET "CmdletType=Scripts"
+            SET /A ProcessedArg=1
+        ) ELSE IF /I "%%~A" == "/Remove" (
+            SET "CmdletName=Remove-%BASE_CMDLET_NAME%"
+            SET "CmdletType=Scripts"
+            SET /A ProcessedArg=1
         ) ELSE IF /I "%%~A" == "/I" (
             IF EXIST "%~dp0Setup" (
                 SET "CmdletName=Install-%BASE_CMDLET_NAME%"
@@ -126,9 +134,9 @@ ECHO.
 ECHO Syntax:
 
 IF EXIST "%~dp0Setup" (
-    ECHO Link2Root ^[/N ^| /New ^| /G ^| /Get ^| /T ^| /Test^ ^| /I ^| /Install ^| /U ^| /Uninstall]
+    ECHO Link2Root ^[/N ^| /New ^| /G ^| /Get ^| /T ^| /Test ^| /R ^| /Remove ^| /I ^| /Install ^| /U ^| /Uninstall]
 ) ELSE (
-    ECHO Link2Root ^[/N ^| /New ^| /G ^| /Get ^| /T ^| /Test ^| /U ^| /Uninstall^]
+    ECHO Link2Root ^[/N ^| /New ^| /G ^| /Get ^| /T ^| /Test ^| /R ^| /Remove ^| /U ^| /Uninstall^]
 )
 
 ECHO           ^[/?^] ^[/P ^| /NoPause]^ ^[^<CmdletArgs^>^]
@@ -142,6 +150,8 @@ ECHO.
 ECHO ^[/G ^| /Get^]         Retrieve the current Root Link on the specified drive.
 ECHO.
 ECHO ^[/T ^| /Test^]        Test if a Root Link exists on the specified drive or not.
+ECHO.
+ECHO ^[/R ^| /Remove^]      Remove an existing Root Link.
 ECHO.
 
 IF EXIST "%~dp0Setup" (
@@ -198,7 +208,17 @@ ECHO C:\Link2Root^> Link2Root /Test -Drive X
 ECHO True
 ECHO.
 ECHO.
-ECHO Example 7: Get Help Information about the New-Link2Root Cmdlet:
+ECHO Example 7: Remove the Root Link from the Current Drive:
+ECHO X:\Projects\MyProject\Link2Root^> Link2Root /Remove
+ECHO Removing Root Link: X:\$ ---^> X:\Projects\MyProject... Success^!
+ECHO.
+ECHO.
+ECHO Example 8: Remove the Root Link from the Specified Drive:
+ECHO C:\Link2Root^> Link2Root /Remove -Drive X
+ECHO Removing Root Link: X:\$ ---^> X:\Projects\MyProject... Success^!
+ECHO.
+ECHO.
+ECHO Example 9: Get Help Information about the New-Link2Root Cmdlet:
 ECHO X:\Projects\MyProject^> Link2Root /New /?
 ECHO NAME
 ECHO New-Link2Root
@@ -211,14 +231,14 @@ ECHO.
 ECHO.
 
 IF EXIST "%~dp0Setup" (
-    ECHO Example 8: Install Link2Root so it can be used anywhere on the system:
+    ECHO Example 10: Install Link2Root so it can be used anywhere on the system:
     ECHO C:\Link2Root^> Link2Root /Install
     ECHO.
     ECHO.
-    ECHO Example 9: Uninstall Link2Root so it can only be used portably again:
+    ECHO Example 11: Uninstall Link2Root so it can only be used portably again:
     ECHO C:\Link2Root^> Link2Root /Uninstall
 ) ELSE (
-    ECHO Example 8: Uninstall Link2Root so it can only be used portably again:
+    ECHO Example 10: Uninstall Link2Root so it can only be used portably again:
     ECHO C:\Link2Root^> Link2Root /Uninstall
 )
 

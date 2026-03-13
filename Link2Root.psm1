@@ -1,3 +1,11 @@
+# Constants #
+
+# The console color to use for the links in the output.
+[System.ConsoleColor]$LINK_COLOR = [System.ConsoleColor]::Cyan
+# The console color to use for arrows in the output.
+[System.ConsoleColor]$ARROW_COLOR = [System.ConsoleColor]::Yellow
+
+
 # Internal Helper Functions #
 
 # The validation function used for `-Path` function parameters.
@@ -95,6 +103,9 @@ function Test-DriveParameter {
 
     .LINK
     New-Link2Root
+
+    .LINK
+    Remove-Link2Root
 #>
 function Get-Link2Root {
 
@@ -187,32 +198,35 @@ function Get-Link2Root {
 
     .EXAMPLE
     Test-Link2Root "X" "myShortcut"
-    False
+    True
 
     Tests for the existence of a shortcut link
     with the name of "myShortcut" on the `X:` drive.
 
     .EXAMPLE
     Test-Link2Root -Path "X:/path/to/target"
+    False
+
+    Tests for the existence of a shortcut link
+    with the name of "$" on the `C:` drive
+    that is pointing to "X:/path/to/target".
+
+    .EXAMPLE
+    Resolve-Path "./path/to/project" | Test-Link -Drive X
     True
 
     Tests for the existence of a shortcut link
     with the name of "$" on the `X:` drive
-    that is pointing to "X:/path/to/target".
-
-    .EXAMPLE
-    Resolve-Path "./testing" | Test-Link -Drive X
-    False
-
-    Tests for the existence of a shortcut link
-    with the name of "$" on the `X:` drive
-    that is pointing to "C:/path/to/target/testing"
+    that is pointing to "C:/path/to/project"
 
     .LINK
     Get-Link2Root
 
     .LINK
     New-Link2Root
+
+    .LINK
+    Remove-Link2Root
 #>
 function Test-Link2Root {
 
@@ -291,7 +305,7 @@ function Test-Link2Root {
     Such shortcuts are useful for quickly referring to
     long file paths during testing or debugging. For example,
     a directory junction could be created for the path,
-    "X:\my-super-long-project-name\another-really-long-path\src\my-super-cool-module",
+    "X:\Projects\Personal\My-Super-Cool-Project\assets\scripts",
     accessible at "X:\$".
 
     If an existing shortcut already exists at the root of the drive,
@@ -314,8 +328,9 @@ function Test-Link2Root {
     Otherwise, `New-Link2Root` will return `$false`.
 
     .EXAMPLE
-    New-Link2Root
-    Creating Root Link: C:\$ ---> C:\... Success!
+    cd path/to/project
+    PS C:\path\to\project>New-Link2Root
+    Creating Root Link: C:\$ ---> C:\path\to\project Success!
 
     Creates a Directory Junction via "$" on the `C:` drive
     to the current working directory.
@@ -328,22 +343,25 @@ function Test-Link2Root {
     to "X:\my-super-long-project-name\src".
 
     .EXAMPLE
-    "X:\my-super-long-project-name\src\index.js" | New-Link2Root -NoClobber
-    Creating Root Link: X:\$ ---> X:\my-super-long-project-name\src\index.js... Success!
-    Root Link X:\$ ---> X:\my-super-long-project-name\src already exists!
+    "X:\my-super-long-project-name\src\index.js" | New-Link2Root -Shortcut "$.js" -Drive "X" -NoClobber
+    Creating Root Link: X:\$.js ---> X:\my-super-long-project-name\src\index.js... Failed!
+    Root Link X:\$.js ---> X:\my-super-long-project-name\src already exists!
 
-    Creates a Hard Link via "$" on the `X:` drive
+    Creates a Hard Link via "$.js" on the `X:` drive
     to "X:\my-super-long-project-name\src\index.js",
-    while ensuring that any existing "$" shortcut
+    while ensuring that any existing "$.js" shortcut
     on the `X:` drive won't be overwritten.
 
     .EXAMPLE
     $result = Join-Path X:\my-super-long-project-name src | New-Link2Root -PassThru -Silent
 
-    Creates a Directory Junction via "$" on the `X:` drive
+    Creates a Directory Junction via "$" on the `C:` drive
     to "X:\my-super-long-project-name\src", storing the
     result as a boolean in a variable and preventing the
     results of the function from being written to the host.
+
+    .LINK
+    Remove-Link2Root
 
     .LINK
     Get-Link2Root
@@ -406,7 +424,7 @@ function New-Link2Root {
         <#
             Indicates that this function should return a boolean value
             indicating whether or not the specified location was successfully
-            linked to the root of the designated drive or not.
+            linked to the root of the designated drive.
 
             By default and when this switch is omitted,
             this function does not return anything.
@@ -427,11 +445,6 @@ function New-Link2Root {
     
 
     # Variables #
-
-    # The console color to use for the links in the output.
-    [System.ConsoleColor]$LINK_COLOR = [System.ConsoleColor]::Cyan
-    # The console color to use for arrows in the output.
-    [System.ConsoleColor]$ARROW_COLOR = [System.ConsoleColor]::Yellow
 
     # The resolved target path to be linked.
     [string]$resolvedPath = (Resolve-Path $Path)
@@ -485,10 +498,10 @@ function New-Link2Root {
                     "Remove Existing Root Link: $shortcutPath ---> $existingLink",
                     "Confirm`nAre you sure you want to perform this action?"
                 )) {
-                    (Get-Item $shortcutPath).Delete()
+                    Remove-Link2Root -Drive $Drive -Shortcut $Shortcut -Silent -Confirm:$false
                 }
-                elseif (!$WhatIfPreference) {
-                    throw "The operation was cancelled."
+                elseif (-not $WhatIfPreference) {
+                    throw "Existing Root Link $shortcutPath ---> $existingLink was not removed!"
                 }
             }
             else {
@@ -501,11 +514,18 @@ function New-Link2Root {
             "Create Root Link: $shortcutPath ---> $resolvedPath",
             "Confirm`nAre you sure you want to perform this action?"
         )) {
-            New-Item -ItemType $pathType -Path $shortcutPath -Target (Resolve-Path $Path) -WhatIf:$false -Confirm:$false | Out-Null
+            New-Item -ItemType $pathType -Path $shortcutPath -Target (Resolve-Path $Path) -Confirm:$false | Out-Null
             return $true
         }
-        elseif (!$WhatIfPreference) {
-            throw "The operation was cancelled."
+        elseif (-not $WhatIfPreference) {
+            if (-not $Silent) {
+                Write-Host "Root Link " -NoNewline
+                Write-Host $shortcutPath -NoNewline -ForegroundColor $LINK_COLOR
+                Write-Host " ---> " -ForegroundColor $ARROW_COLOR -NoNewline
+                Write-Host $resolvedPath -NoNewline -ForegroundColor $LINK_COLOR
+                Write-Host " was not created" -NoNewline -ForegroundColor Yellow
+                Write-Host "."
+            }
         }
 
         return $false
@@ -518,7 +538,7 @@ function New-Link2Root {
     if (-not (Test-Link2Root -Drive $Drive -Shortcut $Shortcut -Path $Path)) {
         # Indicates if the -Confirm switch is being used.
         [bool]$confirm = ([int]$ConfirmPreference -le [int][System.Management.Automation.ConfirmImpact]::Medium)
-        # Indicates if the -Verbose or -WhatIf switches are being used.
+        # Indicates if the -Verbose, -WhatIf, or -Confirm switches are being used.
         [bool]$useVerboseOutput = ($VerbosePreference -or $WhatIfPreference -or $confirm)
 
         try {
@@ -536,7 +556,10 @@ function New-Link2Root {
 
             if (Set-RootLink -Verbose:$VerbosePreference) {
                 if (-not $Silent) {
-                    if ($useVerboseOutput) {
+                    if (-not $useVerboseOutput) {
+                        Write-Host "Success!" -ForegroundColor Green
+                    }
+                    else {
                         if ($confirm) {
                             Write-Host ""
                         }
@@ -546,9 +569,6 @@ function New-Link2Root {
                         Write-Host $shortcutPath -ForegroundColor $LINK_COLOR -NoNewline
                         Write-Host " to " -NoNewline
                         Write-Host $resolvedPath -ForegroundColor $LINK_COLOR
-                    }
-                    else {
-                        Write-Host "Success!" -ForegroundColor Green
                     }
                 }
                 if ($PassThru) {
@@ -593,7 +613,190 @@ function New-Link2Root {
     }
 }
 
+<#
+    .SYNOPSIS
+    Remove a new shortcut link from the root of the drive.
+
+    .DESCRIPTION
+    Removes the Shortcut Hard Link or Directory Junction
+    on the root of the designated disk drive.
+
+    .INPUTS
+    None.
+    You cannot pipe any objects to `Remove-Link2Root`.
+
+    .OUTPUTS
+    None.
+    By default, `Remove-Link2Root` generates no output.
+
+    .OUTPUTS
+    bool.
+    When the `-PassThru` switch is used, `Remove-Link2Root`
+    returns `$true` if the specified shortcut link was successfully
+    removed from the designated drive root or `$false` if it was not.
+
+    .EXAMPLE
+    Remove-Link2Root
+    Removing Root Link: C:\$ ---> C:\path\to\project Success!
+
+    Removes the Directory Junction to "C:\path\to\project"
+    via "$" from the `C:` drive.
+
+    .EXAMPLE
+    Remove-Link2Root "projects" "X"
+    Removing Root Link: X:\projects ---> X:\my-super-long-project-name\src\... Success!
+
+    Removes the Directory Junction to "X:\my-super-long-project-name\src"
+    via "projects" from the `X:` drive.
+
+    .EXAMPLE
+    $result = Remove-Link2Root -PassThru -Silent
+
+    Removes the Directory Junction to "X:\my-super-long-project-name\src"
+    via "$" from the `C:` drive, storing the result as a boolean in a variable
+    and preventing the results of the function from being written to the host.
+
+    .LINK
+    New-Link2Root
+
+    .LINK
+    Get-Link2Root
+
+    .LINK
+    Test-Link2Root
+#>
+function Remove-Link2Root {
+
+    [CmdletBinding(SupportsShouldProcess)]
+    [OutputType([bool])]
+    param(
+        <#
+            The name of the shortcut link to remove
+            from the root of the designated drive.
+        #>
+        [Alias("Link")]
+        [ValidateNotNullOrEmpty()]
+        [string]$Shortcut = "$",
+        
+        <#
+            The letter of the disk drive in which
+            to remove the shortcut link at the root from.
+
+            For example, `C` or `x`.
+        #>
+        [ValidateScript({ Test-DriveParameter $_ })]
+        [PSDefaultValue(Help = "The Disk Drive of the Current Working Directory.")]
+        [string]$Drive = (Split-Path (Resolve-Path $PWD) -Qualifier)[0],
+
+        <#
+            Indicates that this function should return a boolean value
+            indicating whether or not the specified shortcut link was
+            successfully removed from the root of the designated drive.
+
+            By default and when this switch is omitted,
+            this function does not return anything.
+        #>
+        [switch]$PassThru,
+
+        <#
+            Indicates that the results of the function should
+            not be written to the host.
+
+            By default and when this switch is omitted,
+            the results of the function are written to the host,
+            potentially in addition to being returned if
+            the `-PassThru` switch is also used.
+        #>
+        [switch]$Silent
+    )
+
+
+    [string]$shortcutPath = Get-Link2Root -Drive $Drive -Shortcut $Shortcut
+    # Indicates if the -Confirm switch is being used.
+    [bool]$confirm = ([int]$ConfirmPreference -le [int][System.Management.Automation.ConfirmImpact]::Medium)
+    # Indicates if the -Verbose, -WhatIf, or -Confirm switches are being used.
+    [bool]$useVerboseOutput = ($VerbosePreference -or $WhatIfPreference -or $confirm)
+
+
+    if (Test-Link2Root -Drive $Drive -Shortcut $Shortcut) {
+        # The linked path of the existing shortcut link.
+        [string]$existingLink = Get-Link2Root -Drive $Drive -Shortcut $Shortcut -GetLinkedPath
+    
+        if ($PSCmdlet.ShouldProcess(
+            "Removing Existing Root Link: $shortcutPath ---> $existingLink",
+            "Remove Existing Root Link: $shortcutPath ---> $existingLink",
+            "Confirm`nAre you sure you want to perform this action?"
+        )) {
+            if (-not $Silent) {
+                Write-Host "Removing Root Link: " -NoNewline
+                Write-Host $shortcutPath -ForegroundColor $LINK_COLOR -NoNewline
+                Write-Host " ---> " -ForegroundColor $ARROW_COLOR -NoNewline
+                Write-Host $resolvedPath -ForegroundColor $LINK_COLOR -NoNewline
+                Write-Host "... " -NoNewline
+                
+                if ($useVerboseOutput) {
+                    Write-Host ""
+                }
+            }
+
+            (Get-Item $shortcutPath).Delete()
+
+            if (-not $useVerboseOutput) {
+                Write-Host "Success!" -ForegroundColor Green
+            }
+            else {
+                if ($confirm) {
+                    Write-Host ""
+                }
+
+                Write-Host "Successfully removed " -NoNewline -ForegroundColor Green
+                Write-Host "Root Link " -NoNewline
+                Write-Host $shortcutPath -NoNewline -ForegroundColor $LINK_COLOR
+                Write-Host " ---> " -ForegroundColor $ARROW_COLOR -NoNewline
+                Write-Host $existingLink -NoNewline -ForegroundColor $LINK_COLOR
+                Write-Host "!"
+            }
+
+            if ($PassThru) {
+                return $true
+            }
+        }
+        elseif (-not $WhatIfPreference) {
+            if (-not $Silent) {
+                if (-not $useVerboseOutput) {
+                    Write-Host "Failed!" -ForegroundColor Red
+                }
+                else {
+                    if ($confirm) {
+                        Write-Host ""
+                    }
+
+                    Write-Host "Root Link " -NoNewline
+                    Write-Host $shortcutPath -NoNewline -ForegroundColor $LINK_COLOR
+                    Write-Host " ---> " -ForegroundColor $ARROW_COLOR -NoNewline
+                    Write-Host $existingLink -NoNewline -ForegroundColor $LINK_COLOR
+                    Write-Host " was not removed" -NoNewline -ForegroundColor Yellow
+                    Write-Host "."
+                }
+            }
+        }
+    }
+    else {
+        if (-not $Silent) {
+            Write-Host "Root Link " -NoNewline
+            Write-Host $shortcutPath -NoNewline -ForegroundColor $LINK_COLOR
+            Write-Host " does not exist" -NoNewline -ForegroundColor Yellow
+            Write-Host "."
+        }
+    }
+    
+    if ($PassThru) {
+        return $false
+    }
+
+}
+
 
 # Exports #
 
-Export-ModuleMember -Function Get-Link2Root, Test-Link2Root, New-Link2Root
+Export-ModuleMember -Function Get-Link2Root, Test-Link2Root, New-Link2Root, Remove-Link2Root
