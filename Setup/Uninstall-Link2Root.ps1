@@ -107,6 +107,21 @@ if ($Force -and -not $PSBoundParameters.ContainsKey("Confirm")) {
     $ConfirmPreference = "None"
 }
 
+if (-not (& "$PSScriptRoot\Test-Installation.ps1" -Silent -PassThru)) {
+    if (-not $Silent) {
+        Write-Component "Link2Root" -NoNewline
+        Write-Host " is " -NoNewline
+        Write-Host "not currently installed!" -ForegroundColor Yellow
+    }
+
+    if ($PassThru) {
+        return $false
+    }
+    else {
+        return
+    }
+}
+
 if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$yesToAll, [ref]$noToAll)) {
     # Uninstall the script in the current user's local appdata folder
     if (-not $KeepInstall) {

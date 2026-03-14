@@ -50,7 +50,7 @@ if (-not $GetModulePath) {
     return (Join-Path $env:LOCALAPPDATA $PROGRAM_NAME)
 }
 else {
-    Write-Verbose "Retrieving Link2Root PowerShell Module Path..."
+    Write-Verbose "Retrieving Link2Root PowerShell Module Path"
 
     # Search for the first user-specific module location
     foreach ($path in ($env:PSModulePath -split ";")) {

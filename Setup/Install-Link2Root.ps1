@@ -310,7 +310,7 @@ function Set-InstallVerb {
 }
 
 
-if ((& "$PSScriptRoot\Test-Installation.ps1") -and -not $Reinstall) {
+if ((& "$PSScriptRoot\Test-Installation.ps1" -Silent -PassThru) -and -not $Reinstall) {
     if (-not $Silent) {
         Write-Path "Link2Root" -NoNewline
         Write-Host " is Already Installed!" -ForegroundColor Yellow
@@ -395,7 +395,7 @@ try {
                         }
             
                         if ($scriptIsInstalled) {
-                            Write-Verbose "Removing Existing Link2Root Installation Files for Reinstall..."
+                            Write-Verbose "Removing Existing Link2Root Installation Files for Reinstall"
                             & "$PSScriptRoot\Uninstall-Link2Root.ps1" -KeepModule -KeepPATH -Silent -Force -Verbose:$VerbosePreference
                         }
             
@@ -492,7 +492,7 @@ try {
                             }
                 
                             if ($moduleIsInstalled) {
-                                Write-Verbose "Removing Existing Link2Root PowerShell Module Files for Reinstall..."
+                                Write-Verbose "Removing Existing Link2Root PowerShell Module Files for Reinstall"
                                 & "$PSScriptRoot\Uninstall-Link2Root.ps1" -KeepInstall -KeepPATH -Silent -Force
                             }
                 
@@ -601,7 +601,7 @@ try {
                     "Confirm`nAre you sure you want to perform this action?"
                 )) {
                     if ($isAddedToPATH) {
-                        Write-Verbose "Removing Link2Root from $username's PATH for Reinstall..."
+                        Write-Verbose "Removing Link2Root from $username's PATH for Reinstall"
                         & "$PSScriptRoot\Uninstall-Link2Root.ps1" -KeepInstall -KeepModule -Silent -Force
                     }
     

@@ -32,6 +32,7 @@
     .\Test-Installation.ps1 -TestInstall -TestPATH
     False
 #>
+[CmdletBinding()]
 param(
     <#
         Indicates that the existence of the
@@ -50,25 +51,116 @@ param(
         Link2Root Installation Directory in the
         current user's PATH should be tested.
     #>
-    [switch]$TestPATH
+    [switch]$TestPATH,
+
+    [switch]$Silent,
+    [switch]$PassThru
 )
 
 
+[bool]$result = $true
 [string]$installLocation = & "$PSScriptRoot\Get-InstallLocation.ps1"
 
+
+Write-Verbose "Testing Current Installation Status of Link2Root"
 
 if (-not ($TestInstall -or $TestModule -or $TestPATH)) {
     $TestInstall = $TestModule = $TestPATH = $true
 }
 
-if ($TestInstall -and -not (Test-Path $installLocation -Type Container)) {
-    return $false
+if ($TestInstall) {
+    Write-Verbose "Testing for Link2Root Installation in $installLocation"
+
+    if (Test-Path $installLocation -Type Container) {
+        if (-not $Silent) {
+            Write-ComponentUpdatePrefix -Success
+            Write-Component "Link2Root" -NoNewline
+            Write-Host " Installed" -NoNewline -ForegroundColor Green
+            Write-Host " in " -NoNewline
+            Write-Path $installLocation
+        }
+    }
+    else {
+        if (-not $Silent) {
+            Write-ComponentUpdatePrefix -Failed
+            Write-Component "Link2Root" -NoNewline
+            Write-Host " NOT Installed" -NoNewline -ForegroundColor Red
+            Write-Host " in " -NoNewline
+            Write-Path $installLocation
+            $result = $false
+        }
+    }
 }
-if ($TestModule -and -not (Test-Path (& "$PSScriptRoot\Get-InstallLocation.ps1" -GetModulePath) -Type Container)) {
-    return $false
+if ($TestModule) {
+    [string]$modulePath = (& "$PSScriptRoot\Get-InstallLocation.ps1" -GetModulePath)
+    
+    Write-Verbose "Testing for Link2Root PowerShell Module in $modulePath"
+
+    if (Test-Path $modulePath -Type Container) {
+        if (-not $Silent) {
+            Write-ComponentUpdatePrefix -Success
+            Write-Component "Link2Root PowerShell Module" -NoNewline
+            Write-Host " Installed" -NoNewline -ForegroundColor Green
+            Write-Host " in " -NoNewline
+            Write-Path $modulePath
+        }
+    }
+    else {
+        if (-not $Silent) {
+            Write-ComponentUpdatePrefix -Failed
+            Write-Component "Link2Root PowerShell Module" -NoNewline
+            Write-Host " NOT Installed" -NoNewline -ForegroundColor Red
+            Write-Host " in " -NoNewline
+            Write-Path $modulePath
+            $result = $false
+        }
+    }
 }
-if ($TestPATH -and -not (Test-UserPATH $installLocation)) {
-    return $false
+if ($TestPATH) {
+    [string]$username = Get-FullyQualifiedUsername
+
+    Write-Verbose "Testing for $installLocation in $username's PATH"
+    
+    if (Test-UserPATH $installLocation) {
+        if (-not $Silent) {
+            Write-ComponentUpdatePrefix -Success
+            Write-Component "Link2Root" -NoNewline
+            Write-Host " Added" -NoNewline -ForegroundColor Green
+            Write-Host " to " -NoNewline
+            Write-Path "$username's PATH"
+        }
+    }
+    else {
+        if (-not $Silent) {
+            Write-ComponentUpdatePrefix -Failed
+            Write-Component "Link2Root" -NoNewline
+            Write-Host " NOT Added" -NoNewline -ForegroundColor Red
+            Write-Host " in " -NoNewline
+            Write-Path "$username's PATH"
+        }
+        $result = $false
+    }
 }
 
-return $true
+if ($result) {
+    Write-Verbose "Link2Root IS considered to be installed"
+}
+else {
+    Write-Verbose "Link2Root is NOT considered to be installed"
+}
+
+if (-not $Silent) {
+    Write-Component "Link2Root" -NoNewline
+    Write-Host " is " -NoNewline
+
+    if ($result) {
+        Write-Host "Currently Installed!" -ForegroundColor Green
+    }
+    else {
+        Write-Host "NOT Currently Installed!" -ForegroundColor Red
+    }
+}
+
+if ($PassThru) {
+    return $result
+}
