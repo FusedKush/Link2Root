@@ -132,7 +132,7 @@ function New-TemporaryFolder {
     $tempPath = ([System.IO.Path]::GetTempPath())
     $tempFolder = Join-Path $tempPath $name
 
-    New-Item -Path $tempFolder -ItemType Directory | Out-Null
+    New-Item -Path $tempFolder -ItemType Directory @NO_RISK_PARAMS | Out-Null
     Write-Verbose "Created Temporary Directory '$name' in $tempPath"
     return $tempFolder
 
@@ -142,11 +142,13 @@ function New-InstallDirectory {
 
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory, Position = 1)]
+        [Parameter(Mandatory, Position = 1, ValueFromPipeline)]
         [string]$Path,
 
         [Parameter(Mandatory, Position = 2)]
-        [string]$Name
+        [string]$Name,
+
+        [switch]$PassThru
     )
 
     [hashtable]$newItemArgs = @{
@@ -162,13 +164,17 @@ function New-InstallDirectory {
         throw "Failed to Create Directory '$Name' in $(Resolve-Path $Path)"
     }
 
+    if ($PassThru) {
+        return (Resolve-Path "$Path\$Name")
+    }
+
 }
 
 function Copy-ToTemporaryFolder {
 
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory, Position = 1)]
+        [Parameter(Mandatory, Position = 1, ValueFromPipeline)]
         [string]$Path,
 
         [Parameter(Mandatory, Position = 2)]
@@ -209,7 +215,7 @@ function Move-TemporaryFolder {
         [Parameter(Mandatory, Position = 1)]
         [string]$TempFolder,
 
-        [Parameter(Mandatory, Position = 2)]
+        [Parameter(Mandatory, Position = 2, ValueFromPipeline)]
         [string]$Destination
     )
 
@@ -429,7 +435,7 @@ try {
                         Copy-ToTemporaryFolder -Path "$PSScriptRoot\..\Link2Root.psd1" -Destination "$tempFolder\Link2Root.psd1"
 
                         # Test if we can write to the /Documents folder or not
-                        if ($testFile = (New-Item @testFileArgs)) {
+                        if ($testFile = (New-Item @testFileArgs @NO_RISK_PARAMS)) {
                             Remove-Item -Path $testFile
 
                             if (-not (Test-Path $modulesLocation)) {        
@@ -475,14 +481,14 @@ try {
                             ))) {
                                 [string]$modulesFolderName = (Split-Path $modulesLocation -Leaf)
 
-                                New-InstallDirectory -Path $desktop -Name $psFolderName
-                                New-InstallDirectory -Path "$desktop\$psFolderName" -Name $modulesFolderName
-                                Move-TemporaryFolder -TempFolder $tempFolder -Destination "$desktop\$psFolderName\$modulesFolderName"
+                                New-InstallDirectory -Path $desktop -Name $psFolderName -PassThru |
+                                    New-InstallDirectory -Path "$desktop\$psFolderName" -Name $modulesFolderName -PassThru |
+                                        Move-TemporaryFolder -TempFolder $tempFolder
                             }
 
                             if (-not $Silent) {
                                 Write-Host "[" -NoNewline
-                                Write-Host "/" -NoNewline -ForegroundColor Green
+                                Write-Host "/" -NoNewline -ForegroundColor DarkYellow
                                 Write-Host "] The " -NoNewline
                                 Write-Host "Link2Root PowerShell Module" -NoNewline -ForegroundColor Yellow
                                 Write-Host " is " -NoNewline
