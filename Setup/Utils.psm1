@@ -47,16 +47,26 @@ function Resolve-UserPATH {
 
 function Set-UserPATH {
 
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory, Position = 1, ValueFromPipeline)]
         [string[]]$PATH
     )
 
-    [System.Environment]::SetEnvironmentVariable(
-        "PATH",
-        (Resolve-UserPATH $PATH -ToString),
-        "USER"
-    )
+    begin {
+        [string[]]$fullPATH = $PATH
+    }
+    process {
+        if ($null -ne $_) {
+            $fullPATH += @($_)
+        }
+    }
+    end {
+        [string]$resolvedPATH = (Resolve-UserPATH $fullPATH -ToString)
+    
+        Write-Verbose "Updating $(Get-FullyQualifiedUsername)'s PATH to: $resolvedPATH"
+        [System.Environment]::SetEnvironmentVariable("PATH", $resolvedPATH, "USER")
+    }
 
 }
 
