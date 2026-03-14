@@ -126,7 +126,7 @@ if ($TestPATH) {
     [string]$username = Get-FullyQualifiedUsername
     
     if (Test-UserPATH $installLocation) {
-        Write-Verbose "$installLocation FOUND in $username's PATH"
+        Write-Verbose "Entry $installLocation FOUND in $username's PATH"
 
         if (-not $Silent) {
             Write-ComponentUpdatePrefix -Success
@@ -137,7 +137,7 @@ if ($TestPATH) {
         }
     }
     else {
-        Write-Verbose "$installLocation NOT found in $username's PATH"
+        Write-Verbose "Entry $installLocation NOT found in $username's PATH"
 
         if (-not $Silent) {
             Write-ComponentUpdatePrefix -Failed
