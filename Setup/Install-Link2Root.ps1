@@ -486,7 +486,8 @@ try {
     
                                     New-InstallDirectory -Path $desktop -Name $psFolderName -PassThru |
                                         New-InstallDirectory -Name $modulesFolderName -PassThru |
-                                            Move-TemporaryFolder -TempFolder $tempFolder
+                                            New-InstallDirectory -Name "Link2Root" -PassThru |
+                                                Move-TemporaryFolder -TempFolder $tempFolder
                                 }
                             }
                             else {
