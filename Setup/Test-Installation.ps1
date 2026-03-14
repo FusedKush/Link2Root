@@ -126,7 +126,7 @@ if ($TestPATH) {
     [string]$username = Get-FullyQualifiedUsername
     
     if (Test-UserPATH $installLocation) {
-        Write-Verbose "$installLocation IS in $username's PATH"
+        Write-Verbose "$installLocation FOUND in $username's PATH"
 
         if (-not $Silent) {
             Write-ComponentUpdatePrefix -Success
@@ -137,13 +137,13 @@ if ($TestPATH) {
         }
     }
     else {
-        Write-Verbose "$installLocation is NOT in $username's PATH"
+        Write-Verbose "$installLocation NOT found in $username's PATH"
 
         if (-not $Silent) {
             Write-ComponentUpdatePrefix -Failed
             Write-Component "Link2Root" -NoNewline
             Write-Host " NOT Added" -NoNewline -ForegroundColor Red
-            Write-Host " in " -NoNewline
+            Write-Host " to " -NoNewline
             Write-Path "$username's PATH"
         }
         $result = $false
