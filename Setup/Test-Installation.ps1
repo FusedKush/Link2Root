@@ -58,6 +58,8 @@ param(
 )
 
 
+Import-Module "$PSScriptRoot\Utils.psm1"
+
 [bool]$result = $true
 [string]$installLocation = & "$PSScriptRoot\Get-InstallLocation.ps1"
 
@@ -69,9 +71,9 @@ if (-not ($TestInstall -or $TestModule -or $TestPATH)) {
 }
 
 if ($TestInstall) {
-    Write-Verbose "Testing for Link2Root Installation in $installLocation"
-
     if (Test-Path $installLocation -Type Container) {
+        Write-Verbose "Link2Root IS installed in $installLocation"
+        
         if (-not $Silent) {
             Write-ComponentUpdatePrefix -Success
             Write-Component "Link2Root" -NoNewline
@@ -81,6 +83,8 @@ if ($TestInstall) {
         }
     }
     else {
+        Write-Verbose "Link2Root is NOT installed in $installLocation"
+        
         if (-not $Silent) {
             Write-ComponentUpdatePrefix -Failed
             Write-Component "Link2Root" -NoNewline
@@ -94,9 +98,9 @@ if ($TestInstall) {
 if ($TestModule) {
     [string]$modulePath = (& "$PSScriptRoot\Get-InstallLocation.ps1" -GetModulePath)
     
-    Write-Verbose "Testing for Link2Root PowerShell Module in $modulePath"
-
     if (Test-Path $modulePath -Type Container) {
+        Write-Verbose "The Link2Root PowerShell Module IS installed in $modulePath"
+
         if (-not $Silent) {
             Write-ComponentUpdatePrefix -Success
             Write-Component "Link2Root PowerShell Module" -NoNewline
@@ -106,6 +110,8 @@ if ($TestModule) {
         }
     }
     else {
+        Write-Verbose "The Link2Root PowerShell Module is NOT installed in $modulePath"
+
         if (-not $Silent) {
             Write-ComponentUpdatePrefix -Failed
             Write-Component "Link2Root PowerShell Module" -NoNewline
@@ -118,10 +124,10 @@ if ($TestModule) {
 }
 if ($TestPATH) {
     [string]$username = Get-FullyQualifiedUsername
-
-    Write-Verbose "Testing for $installLocation in $username's PATH"
     
     if (Test-UserPATH $installLocation) {
+        Write-Verbose "$installLocation IS in $username's PATH"
+
         if (-not $Silent) {
             Write-ComponentUpdatePrefix -Success
             Write-Component "Link2Root" -NoNewline
@@ -131,6 +137,8 @@ if ($TestPATH) {
         }
     }
     else {
+        Write-Verbose "$installLocation is NOT in $username's PATH"
+
         if (-not $Silent) {
             Write-ComponentUpdatePrefix -Failed
             Write-Component "Link2Root" -NoNewline
