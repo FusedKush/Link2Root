@@ -263,6 +263,8 @@ try {
     [string]$installLocation = & "$PSScriptRoot\Get-InstallLocation.ps1"
     [string]$modulePath = & "$PSScriptRoot\Get-InstallLocation.ps1" -GetModulePath
     [string]$modulesLocation = Split-Path $modulePath -Parent
+    [string]$psFolder = Split-Path $modulesLocation -Parent
+    [string]$psFolderName = Split-Path $psFolder -Leaf
     [bool]$success = $false
     [bool]$yesToAll = $false
     [bool]$noToAll = $false
@@ -430,10 +432,7 @@ try {
                         if ($testFile = (New-Item @testFileArgs)) {
                             Remove-Item -Path $testFile
 
-                            if (-not (Test-Path $modulesLocation)) {
-                                $psFolder = Split-Path $modulesLocation -Parent
-                                $psFolderName = Split-Path $psFolder -Leaf
-        
+                            if (-not (Test-Path $modulesLocation)) {        
                                 Write-Verbose "No Existing PowerShell Module Folder Found!"
                                 Write-Verbose "Attempting to Create PowerShell Module Folder in $modulesLocation..."
         
