@@ -602,7 +602,7 @@ try {
             Write-Host "Successfully $($installerVerb.ToString().ToLower())ed " -NoNewline -ForegroundColor Green
             Write-Host "Link2Root" -NoNewline -ForegroundColor Cyan
             Write-Host "!" -ForegroundColor Green
-            Write-Host "You may have to restart your console session or terminal window for changes to take effect." -ForegroundColor Yellow
+            Write-Host "You may have to restart your console session or terminal window for changes to take effect." -ForegroundColor DarkYellow
         }
         else {
             Write-Host "Nothing for " -NoNewline -ForegroundColor Yellow
