@@ -61,12 +61,7 @@ param(
 )
 
 
-if ($Internal) {
-    $VerbosePreference = $false
-}
-
-
-Import-Module "$PSScriptRoot\Utils.psm1"
+Import-Module "$PSScriptRoot\Utils.psm1" -Verbose:(-not $Internal)
 
 [bool]$result = $true
 [string]$installLocation = & "$PSScriptRoot\Get-InstallLocation.ps1"
@@ -104,7 +99,7 @@ if ($TestInstall) {
     }
 }
 if ($TestModule) {
-    [string]$modulePath = (& "$PSScriptRoot\Get-InstallLocation.ps1" -GetModulePath)
+    [string]$modulePath = (& "$PSScriptRoot\Get-InstallLocation.ps1" -GetModulePath -Internal:$Internal)
     
     if (Test-Path $modulePath -Type Container) {
         Write-Verbose "The Link2Root PowerShell Module IS installed in $modulePath"

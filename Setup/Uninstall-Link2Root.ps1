@@ -111,7 +111,7 @@ if ($Force -and -not $PSBoundParameters.ContainsKey("Confirm")) {
     $ConfirmPreference = "None"
 }
 
-if (-not $Install -and -not (& "$PSScriptRoot\Test-Installation.ps1" -Silent -PassThru -Verbose:$false)) {
+if (-not $Install -and -not (& "$PSScriptRoot\Test-Installation.ps1" -Silent -PassThru -Internal)) {
     if (-not $Silent) {
         Write-Component "Link2Root" -NoNewline
         Write-Host " is " -NoNewline
@@ -261,7 +261,7 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
 
                         return $true
                     
-                    }) | Set-UserPATH;
+                    }) | Set-UserPATH -Verbose:$VerbosePreference;
                     $success = $true
                     
                     if (-not $Silent) {

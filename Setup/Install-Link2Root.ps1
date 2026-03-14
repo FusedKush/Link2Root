@@ -306,7 +306,7 @@ function Set-InstallVerb {
 }
 
 
-if ((& "$PSScriptRoot\Test-Installation.ps1" -Silent -PassThru -Verbose:$false) -and -not $Reinstall) {
+if ((& "$PSScriptRoot\Test-Installation.ps1" -Silent -PassThru -Internal) -and -not $Reinstall) {
     if (-not $Silent) {
         Write-Component "Link2Root" -NoNewline
         Write-Host " is " -NoNewline
@@ -597,7 +597,7 @@ try {
                         & "$PSScriptRoot\Uninstall-Link2Root.ps1" -Reinstall -KeepInstall -KeepModule -Silent -Force
                     }
     
-                    Set-UserPATH ($userPATH + @($installLocation))
+                    Set-UserPATH -PATH ($userPATH + @($installLocation)) -Verbose:$VerbosePreference
                     $success = $true
     
                     if (-not $Silent) {
