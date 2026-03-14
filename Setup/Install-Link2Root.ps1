@@ -381,10 +381,9 @@ try {
     }
 
     if ($Force -or $PSCmdlet.ShouldContinue("$(Get-InstallVerb -Installer) Link2Root", "Confirm", [ref]$yesToAll, [ref]$noToAll)) {
-        [string[]]$userPATH = Get-UserPATH
         [bool]$scriptIsInstalled = (Test-Path $installLocation)
         [bool]$moduleIsInstalled = (Test-Path $modulePath)
-        [bool]$isAddedToPATH = Test-UserPATH -Entry $installLocation -PATH $userPATH
+        [bool]$isAddedToPATH = Test-UserPATH -Entry $installLocation
 
         # Install the script in the current user's local appdata folder
         if (-not $SkipScriptInstall) {
@@ -637,7 +636,7 @@ try {
                         & "$PSScriptRoot\Uninstall-Link2Root.ps1" -Reinstall -KeepInstall -KeepModule -Silent -Force
                     }
     
-                    Set-UserPATH -PATH ($userPATH + @($installLocation)) -Verbose:$VerbosePreference
+                    Set-UserPATH -PATH ((Get-UserPATH) + @($installLocation)) -Verbose:$VerbosePreference
                     $success = $true
     
                     if (-not $Silent) {

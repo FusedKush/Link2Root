@@ -94,7 +94,7 @@ param(
 )
 
 
-Import-Module "$PSScriptRoot\Utils.psm1" -Verbose:(-not $Install)
+Import-Module "$PSScriptRoot\Utils.psm1" -Verbose:($VerbosePreference -and -not $Install)
 
 [string]$installLocation = & "$PSScriptRoot\Get-InstallLocation.ps1" -Internal:$Install
 [string]$modulePath = & "$PSScriptRoot\Get-InstallLocation.ps1" -GetModulePath -Internal:$Install
