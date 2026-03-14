@@ -34,6 +34,41 @@
 [CmdletBinding(DefaultParameterSetName = "WithPATHUpdate", SupportsShouldProcess)]
 param(
     <#
+        Skip the installation of Link2Root in the
+        current user's `AppData/Local` folder.
+
+        Using this option will prevent you from being able to use
+        Link2Root without having to move or navigate to the
+        downloaded `Link2Root/` folder.
+
+        When this switch is used, `-SkipPATHUpdate` is implicitly
+        included as well.
+    #>
+    [switch]$SkipScriptInstall,
+    
+    <#
+        Skip the installation of the Link2Root PowerShell Module
+        in the current user's PowerShell Modules.
+
+        Using this option will prevent you from being able to use
+        `Link2Root` and `LinkThis2Root` without importing them into
+        the PowerShell session or script.
+    #>
+    [switch]$SkipModuleInstall,
+    
+    <#
+        Skip updating the current user's `PATH` to
+        add the Link2Root Installation Directory.
+
+        Using this option will prevent you from being able to use
+        the `Link2Root` command without having to move or navigate to
+        the downloaded `Link2Root/` folder.
+
+        This switch has no effect when the `-SkipScriptInstall` switch is used.
+    #>
+    [switch]$SkipPATHUpdate,
+
+    <#
         Indicates that all of the specified components of Link2Root
         should be reinstalled for the current user.
 
@@ -72,41 +107,8 @@ param(
         of the installation and the individual components for Link2Root.
     #>
     [switch]$Silent,
-    
-    <#
-        Skip the installation of Link2Root in the
-        current user's `AppData/Local` folder.
 
-        Using this option will prevent you from being able to use
-        Link2Root without having to move or navigate to the
-        downloaded `Link2Root/` folder.
-
-        When this switch is used, `-SkipPATHUpdate` is implicitly
-        included as well.
-    #>
-    [switch]$SkipScriptInstall,
-    
-    <#
-        Skip the installation of the Link2Root PowerShell Module
-        in the current user's PowerShell Modules.
-
-        Using this option will prevent you from being able to use
-        `Link2Root` and `LinkThis2Root` without importing them into
-        the PowerShell session or script.
-    #>
-    [switch]$SkipModuleInstall,
-    
-    <#
-        Skip updating the current user's `PATH` to
-        add the Link2Root Installation Directory.
-
-        Using this option will prevent you from being able to use
-        the `Link2Root` command without having to move or navigate to
-        the downloaded `Link2Root/` folder.
-
-        This switch has no effect when the `-SkipScriptInstall` switch is used.
-    #>
-    [switch]$SkipPATHUpdate
+    [switch]$NoRollBack
 )
 
 
@@ -126,12 +128,118 @@ function New-TemporaryFolder {
     [OutputType([string])]
     param()
 
-    $name = (New-Guid).ToString("N")
-    $tempFolder = Join-Path ([System.IO.Path]::GetTempPath()) $name
+    $name = (New-Guid).ToString()
+    $tempPath = ([System.IO.Path]::GetTempPath())
+    $tempFolder = Join-Path $tempPath $name
 
     New-Item -Path $tempFolder -ItemType Directory | Out-Null
-    Write-Verbose "Created Temporary Directory: $tempFolder"
+    Write-Verbose "Created Temporary Directory '$name' in $tempPath"
     return $tempFolder
+
+}
+
+function New-InstallDirectory {
+
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory, Position = 1)]
+        [string]$Path,
+
+        [Parameter(Mandatory, Position = 2)]
+        [string]$Name
+    )
+
+    [hashtable]$newItemArgs = @{
+        ItemType = "Directory"
+        Path = $Path
+        Name = $Name
+    }
+
+    Write-Verbose "Creating Directory '$Name' in $(Resolve-Path $Path)"
+    New-Item @newItemArgs @NO_RISK_PARAMS | Out-Null
+
+    if (-not (Test-Path "$Path\$Name")) {
+        throw "Failed to Create Directory '$Name' in $(Resolve-Path $Path)"
+    }
+
+}
+
+function Copy-ToTemporaryFolder {
+
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory, Position = 1)]
+        [string]$Path,
+
+        [Parameter(Mandatory, Position = 2)]
+        [string]$Destination,
+
+        [string]$Filter
+    )
+
+    [hashtable]$copyItemArgs = @{
+        Path = $Path
+        Destination = $Destination
+        Filter = $Filter
+    }
+    [string]$resolvedPath = Resolve-Path $Path
+
+    if (Test-Path $resolvedPath -PathType Container) {
+        $copyItemArgs["Container"] = $true
+        $copyItemArgs["Recurse"] = $true
+        
+        Write-Verbose "Copying Files to Temporary Directory: $resolvedPath\"
+    }
+    else {
+        Write-Verbose "Copying File to Temporary Directory: $resolvedPath"
+    }
+
+    Copy-Item @copyItemArgs @NO_RISK_PARAMS | Out-Null
+
+    if (-not (Test-Path $Destination)) {
+        throw "Failed to Copy $Path to $Destination"
+    }
+
+}
+
+function Move-TemporaryFolder {
+
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory, Position = 1)]
+        [string]$TempFolder,
+
+        [Parameter(Mandatory, Position = 2)]
+        [string]$Destination
+    )
+
+    Write-Verbose "Moving Files from Temporary Directory '$(Split-Path $tempFolder -Leaf)' to $Destination..."
+    Move-Item -Path $tempFolder -Destination $Destination | Out-Null
+
+    if (-not (Test-Path $Destination)) {
+        throw "Failed to Move Temporary Directory $tempFolder to $Destination"
+    }
+
+}
+
+function Remove-TemporaryFolder {
+
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory, Position = 1)]
+        [string]$TempFolder
+    )
+
+    $tempLocation = [System.IO.Path]::GetTempPath()
+
+    if ($TempFolder -ilike "$tempLocation*" -and (Test-Path $tempFolder)) {
+        Write-Verbose "Removing Temporary Directory: $tempFolder"
+        Remove-Item $tempFolder -Recurse -Force
+
+        if (Test-Path $tempFolder) {
+            Write-Warning "Failed to Remove Temporary Directory $tempFolder"
+        }
+    }
 
 }
 
@@ -158,7 +266,6 @@ try {
     [bool]$success = $false
     [bool]$yesToAll = $false
     [bool]$noToAll = $false
-    [hashtable]$tempFolders = @{}
 
     $ErrorActionPreference = "Stop"
 
@@ -193,60 +300,73 @@ try {
                     "$installVerb Link2Root in $installLocation",
                     "Confirm`nAre you sure you want to perform this action?"
                 )) {
-        
-                    $tempFolder = New-TemporaryFolder
-                    [hashtable[]]$copyFileArgs = @(
-                        @{
-                            Path = "$PSScriptRoot\..\Link2Root.psm1"
-                            Destination = "$tempFolder\Link2Root.psm1"
-                        },
-                        @{
-                            Path = "$PSScriptRoot\..\Link2Root.bat"
-                            Destination = "$tempFolder\Link2Root.bat"
-                        },
-                        @{
-                            Path = "$PSScriptRoot\..\LinkThis2Root.bat"
-                            Destination = "$tempFolder\LinkThis2Root.bat"
-                        },
-                        @{
-                            Path = "$PSScriptRoot\"
-                            Destination = "$tempFolder\Installation"
-                            Container = $true
-                            Recurse = $true
-                            Filter = "*Uninstall*"
-                        },
-                        @{
-                            Path = "$PSScriptRoot\..\Scripts"
-                            Destination = "$tempFolder\Scripts"
-                            Container = $true
-                            Recurse = $true
+                    [string]$tempFolder = ""
+
+                    try {
+                        $tempFolder = New-TemporaryFolder
+                        [hashtable[]]$copyFileArgs = @(
+                            @{
+                                Path = "$PSScriptRoot\..\Link2Root.psm1"
+                                Destination = "$tempFolder\Link2Root.psm1"
+                            },
+                            @{
+                                Path = "$PSScriptRoot\..\Link2Root.bat"
+                                Destination = "$tempFolder\Link2Root.bat"
+                            },
+                            @{
+                                Path = "$PSScriptRoot\..\LinkThis2Root.bat"
+                                Destination = "$tempFolder\LinkThis2Root.bat"
+                            },
+                            @{
+                                Path = "$PSScriptRoot"
+                                Destination = "$tempFolder\Installation"
+                                Filter = "*Uninstall*"
+                            },
+                            @{
+                                Path = "$PSScriptRoot\..\Scripts"
+                                Destination = "$tempFolder\Scripts"
+                            }
+                        )
+            
+                        foreach ($copyArgs in $copyFileArgs) {
+                            Copy-ToTemporaryFolder @copyArgs
                         }
-                    )
-                    # New-Item -Path $installLocation -ItemType Directory @itemParams | Out-Null
-        
-                    foreach ($copyArgs in $copyFileArgs) {
-                        $fullArgs = $copyArgs + $NO_RISK_PARAMS
-        
-                        Write-Verbose "Copying $(Resolve-Path $fullArgs["Path"]) to Temporary Install Location..."
-                        Copy-Item @fullArgs | Out-Null
+            
+                        if ($scriptIsInstalled) {
+                            Write-Verbose "Removing Existing Link2Root Installation Files for Reinstall..."
+                            & "$PSScriptRoot\Uninstall-Link2Root.ps1" -KeepModule -KeepPATH -Silent -Force -Verbose:$VerbosePreference
+                        }
+            
+                        Move-TemporaryFolder -TempFolder $tempFolder -Destination $installLocation
+                        $success = $true
+                    
+                        if (-not $Silent) {
+                            Write-Host "[" -NoNewline
+                            Write-Host "+" -NoNewline -ForegroundColor Green
+                            Write-Host "] " -NoNewline
+                            Write-Host "Successfully $($installVerb.ToString().ToLower())ed " -NoNewline -ForegroundColor Green
+                            Write-Host "Link2Root" -NoNewline -ForegroundColor Yellow
+                            Write-Host " in " -NoNewline
+                            Write-Host $installLocation -ForegroundColor Cyan
+                        }
                     }
-        
-                    if ($scriptIsInstalled) {
-                        Write-Verbose "Removing Existing Link2Root Installation Files for Reinstall..."
-                        & "$PSScriptRoot\Uninstall-Link2Root.ps1" -KeepModule -KeepPATH -Silent -Force
+                    catch {
+                        if (-not $Silent) {
+                            Write-Host "[" -NoNewline
+                            Write-Host "-" -NoNewline -ForegroundColor Green
+                            Write-Host "] " -NoNewline
+                            Write-Host "Failed to $($installVerb.ToString().ToLower()) " -NoNewline -ForegroundColor Red
+                            Write-Host "Link2Root" -NoNewline -ForegroundColor Yellow
+                            Write-Host " in " -NoNewline
+                            Write-Host $installLocation -ForegroundColor Cyan
+                        }
+
+                        throw $_
                     }
-        
-                    $tempFolders.Add($tempFolder, $installLocation)
-                    $success = $true
-                
-                    if (-not $Silent) {
-                        Write-Host "[" -NoNewline
-                        Write-Host "+" -NoNewline -ForegroundColor Green
-                        Write-Host "] " -NoNewline
-                        Write-Host "Successfully $($installVerb.ToString().ToLower())ed " -NoNewline -ForegroundColor Green
-                        Write-Host "Link2Root" -NoNewline -ForegroundColor Yellow
-                        Write-Host " in " -NoNewline
-                        Write-Host $installLocation -ForegroundColor Cyan
+                    finally {
+                        if ($null -ne $tempFolder) {
+                            Remove-TemporaryFolder $tempFolder
+                        }
                     }
                 }
                 elseif (-not $Silent) {
@@ -291,44 +411,113 @@ try {
                     "$installVerb Link2Root PowerShell Module in $modulesLocation",
                     "Confirm`nAre you sure you want to perform this action?"
                 )) {
-                    $tempFolder = New-TemporaryFolder
+                    [string]$tempFolder = ""
+
+                    try {
+                        [hashtable]$testFileArgs = @{
+                            ItemType = "File"
+                            Path = [System.Environment]::GetFolderPath("MyDocuments")
+                            Name = "$(New-GUID).tmp"
+                        }
+                        
+                        $tempFolder = New-TemporaryFolder
+
+                        Copy-ToTemporaryFolder -Path "$PSScriptRoot\..\Link2Root.psm1" -Destination "$tempFolder\Link2Root.psm1"
+                        Copy-ToTemporaryFolder -Path "$PSScriptRoot\..\Link2Root.psd1" -Destination "$tempFolder\Link2Root.psd1"
+
+                        # Test if we can write to the /Documents folder or not
+                        if ($testFile = (New-Item @testFileArgs 2>$null)) {
+                            Remove-Item -Path $testFile
+
+                            if (-not (Test-Path $modulesLocation)) {
+                                $psFolder = Split-Path $modulesLocation -Parent
+                                $psFolderName = Split-Path $psFolder -Leaf
         
-                    if (-not (Test-Path $modulesLocation)) {
-                        $psFolder = Split-Path $modulesLocation -Parent
+                                Write-Verbose "No Existing PowerShell Module Folder Found!"
+                                Write-Verbose "Attempting to Create PowerShell Module Folder in $modulesLocation..."
+        
+                                if (-not (Test-Path $psFolder)) {
+                                    New-InstallDirectory -Path (Split-Path $psFolder -Parent) -Name (Split-Path $psFolder -Leaf)
+                                }
+                                
+                                New-InstallDirectory -Path $psFolder -Name (Split-Path $modulesLocation -Leaf)
+                            }
+                
+                            if ($moduleIsInstalled) {
+                                Write-Verbose "Removing Existing Link2Root PowerShell Module Files for Reinstall..."
+                                & "$PSScriptRoot\Uninstall-Link2Root.ps1" -KeepInstall -KeepPATH -Silent -Force
+                            }
+                
+                            Move-TemporaryFolder -TempFolder $tempFolder -Destination $modulePath
+                            $success = $true
+                
+                            if (-not $Silent) {
+                                Write-Host "[" -NoNewline
+                                Write-Host "+" -NoNewline -ForegroundColor Green
+                                Write-Host "] " -NoNewline
+                                Write-Host "Successfully $($installVerb.ToString().ToLower())ed" -NoNewline -ForegroundColor Green
+                                Write-Host " the " -NoNewline
+                                Write-Host "Link2Root PowerShell Module" -NoNewline -ForegroundColor Yellow
+                                Write-Host " in " -NoNewline
+                                Write-Host $modulePath -ForegroundColor Cyan
+                            }
+                        }
+                        else {
+                            if (-not $Silent) {
+                                Write-Warning "PowerShell does not have permission to modify $psFolder. This often caused by Anti-Virus Software or Windows Security's `"Controlled Folder Access`" option."
+                            }
+                        
+                            if ($PSCmdlet.ShouldContinue(
+                                "",
+                                "Do you want to create the PowerShell Module Folder on the Desktop to be manually moved into the /Documents folder?"
+                            )) {
+                                [string]$manualPath = [System.Environment]::GetFolderPath("Desktop")
+                                [string]$modulesFolderName = (Split-Path $modulesLocation -Leaf)
 
-                        Write-Verbose "No Existing PowerShell Module Folder Found!"
-                        Write-Verbose "Creating PowerShell Module Folder in $modulesLocation..."
+                                if (-not (Test-Path $psFolder)) {
+                                    New-InstallDirectory -Path $manualPath -Name $psFolderName
+                                    $manualPath += "/$psFolder"
+                                }
+                                if (-not (Test-Path $modulesLocation)) {
+                                    New-InstallDirectory -Path $manualPath -Name $modulesFolderName
+                                    $manualPath += "/$modulesFolderName"
+                                }
+                                
+                                Move-TemporaryFolder -TempFolder $tempFolder -Destination $manualPath
 
-                        if (-not (Test-Path $psFolder)) {
-                            New-Item -ItemType Directory -Path (Split-Path $psFolder -Parent) -Name (Split-Path $psFolder -Leaf) @NO_RISK_PARAMS
+                                if (-not $Silent) {
+                                    Write-Host "[" -NoNewline
+                                    Write-Host "/" -NoNewline -ForegroundColor Green
+                                    Write-Host "] The " -NoNewline
+                                    Write-Host "Link2Root PowerShell Module" -NoNewline -ForegroundColor Yellow
+                                    Write-Host " is " -NoNewline
+                                    Write-Host "Pending Manual Installation to " -NoNewline
+                                    Write-Host $modulePath -ForegroundColor Cyan
+                                }
+                            }
+                            else {
+                                throw "The Link2Root Installer does not have access to $(Split-Path $psFolder -Parent)"
+                            }
+                        }    
+                    }
+                    catch {
+                        if (-not $Silent) {
+                            Write-Host "[" -NoNewline
+                            Write-Host "+" -NoNewline -ForegroundColor Green
+                            Write-Host "] " -NoNewline
+                            Write-Host "Failed to $($installVerb.ToString().ToLower())" -NoNewline -ForegroundColor Red
+                            Write-Host " the " -NoNewline
+                            Write-Host "Link2Root PowerShell Module" -NoNewline -ForegroundColor Yellow
+                            Write-Host " in " -NoNewline
+                            Write-Host $modulePath -ForegroundColor Cyan
                         }
 
-                        New-Item -ItemType Directory -Path $psFolder -Name (Split-Path $modulesLocation -Leaf) @NO_RISK_PARAMS
+                        throw $_
                     }
-                
-                    Write-Verbose "Copying $(Resolve-Path $PSScriptRoot\..\Link2Root.psm1) to Temporary Install Location..."
-                    Copy-Item -Path "$PSScriptRoot\..\Link2Root.psm1" -Destination "$tempFolder\Link2Root.psm1" @NO_RISK_PARAMS | Out-Null
-                    
-                    Write-Verbose "Copying $(Resolve-Path $PSScriptRoot\..\Link2Root.psd1) to Temporary Install Location..."
-                    Copy-Item -Path "$PSScriptRoot\..\Link2Root.psd1" -Destination "$tempFolder\Link2Root.psd1" @NO_RISK_PARAMS | Out-Null
-        
-                    if ($moduleIsInstalled) {
-                        Write-Verbose "Removing Existing Link2Root PowerShell Module Files for Reinstall..."
-                        & "$PSScriptRoot\Uninstall-Link2Root.ps1" -KeepInstall -KeepPATH -Silent -Force
-                    }
-        
-                    $tempFolders.Add($tempFolder, $modulePath)
-                    $success = $true
-        
-                    if (-not $Silent) {
-                        Write-Host "[" -NoNewline
-                        Write-Host "+" -NoNewline -ForegroundColor Green
-                        Write-Host "] " -NoNewline
-                        Write-Host "Successfully $($installVerb.ToString().ToLower())ed" -NoNewline -ForegroundColor Green
-                        Write-Host " the " -NoNewline
-                        Write-Host "Link2Root PowerShell Module" -NoNewline -ForegroundColor Yellow
-                        Write-Host " in " -NoNewline
-                        Write-Host $modulePath -ForegroundColor Cyan
+                    finally {
+                        if ($null -ne $tempFolder) {
+                            Remove-TemporaryFolder $tempFolder
+                        }
                     }
                 }
                 elseif (-not $Silent) {
@@ -380,12 +569,12 @@ try {
                         & "$PSScriptRoot\Uninstall-Link2Root.ps1" -KeepInstall -KeepModule -Silent -Force
                     }
     
-                    Write-Verbose "Updating Current User's PATH..."
                     [System.Environment]::SetEnvironmentVariable(
                         "PATH",
                         ($currentPATHContents + @($installLocation)) -join ";",
                         [EnvironmentVariableTarget]::User
                     );
+
                     $success = $true
     
                     if (-not $Silent) {
@@ -412,13 +601,6 @@ try {
                 }
             }
         }
-
-        # Only once all installation tasks have completed successfully
-        # will we move the temporary folders to their actual destinations.
-        foreach ($tempFolder in $tempFolders.Keys) {
-            Write-Verbose "Moving Files from $tempFolder to $($tempFolders[$tempFolder])..."
-            Move-Item -Path $tempFolder -Destination $tempFolders[$tempFolder] | Out-Null
-        }
     }
 
     if (-not $Silent) {
@@ -426,6 +608,8 @@ try {
             Write-Host "Successfully $($installerVerb.ToString().ToLower())ed " -NoNewline -ForegroundColor Green
             Write-Host "Link2Root" -NoNewline -ForegroundColor Cyan
             Write-Host "!" -ForegroundColor Green
+            Write-Host ""
+            Write-Host "Any other console sessions or terminal windows may have to be restarted for changes to take effect." -ForegroundColor Yellow
         }
         else {
             Write-Host "Nothing for " -NoNewline -ForegroundColor Yellow
@@ -443,15 +627,19 @@ catch {
         Write-Host "Link2Root" -NoNewline -ForegroundColor Cyan
         Write-Host "!" -ForegroundColor Red
         
-        if ($success) {
+        if ($success -and -not $NoRollBack) {
             Write-Host "Rolling back changes..." -ForegroundColor Yellow
+            & "$PSScriptRoot\Uninstall-Link2Root.ps1" -Silent -Force -Verbose:$VerbosePreference
         }
 
         Write-Host ""
     }
 
     if ($PassThru) {
-        Write-Host $_ -ForegroundColor Red
+        if (-not $Silent) {
+            Write-Host $_ -ForegroundColor Red
+        }
+
         return $false
     }
     else {
