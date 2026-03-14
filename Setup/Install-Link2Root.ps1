@@ -604,6 +604,8 @@ try {
     }
 
     if (-not $Silent) {
+        Write-Host ""
+
         if ($success) {
             Write-Host "Successfully $($installerVerb.ToString().ToLower())ed " -NoNewline -ForegroundColor Green
             Write-Host "Link2Root" -NoNewline -ForegroundColor Cyan
@@ -622,6 +624,7 @@ try {
 }
 catch {
     if (-not $Silent) {
+        Write-Host ""
         Write-Host "Failed to $($installerVerb.ToString().ToLower()) " -NoNewline -ForegroundColor Red
         Write-Host "Link2Root" -NoNewline -ForegroundColor Cyan
         Write-Host "!" -ForegroundColor Red

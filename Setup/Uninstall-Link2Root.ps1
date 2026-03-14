@@ -314,6 +314,8 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
 }
 
 if (-not $Silent) {
+    Write-Host ""
+    
     if ($success -and -not $failed) {
         Write-Host "Successfully uninstalled " -NoNewline -ForegroundColor Green
         Write-Host "Link2Root" -NoNewline -ForegroundColor Cyan
