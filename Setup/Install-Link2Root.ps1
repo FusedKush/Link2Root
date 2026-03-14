@@ -213,7 +213,7 @@ function Move-TemporaryFolder {
         [string]$Destination
     )
 
-    Write-Verbose "Moving Files from Temporary Directory '$(Split-Path $tempFolder -Leaf)' to $Destination..."
+    Write-Verbose "Moving Files from Temporary Directory '$(Split-Path $tempFolder -Leaf)' to $Destination"
     Move-Item -Path $tempFolder -Destination $Destination | Out-Null
 
     if (-not (Test-Path $Destination)) {
@@ -418,6 +418,7 @@ try {
                             ItemType = "File"
                             Path = [System.Environment]::GetFolderPath("MyDocuments")
                             Name = "$(New-GUID).tmp"
+                            ErrorAction = "SilentlyContinue"
                         }
                         
                         $tempFolder = New-TemporaryFolder
@@ -426,7 +427,7 @@ try {
                         Copy-ToTemporaryFolder -Path "$PSScriptRoot\..\Link2Root.psd1" -Destination "$tempFolder\Link2Root.psd1"
 
                         # Test if we can write to the /Documents folder or not
-                        if ($testFile = (New-Item @testFileArgs 2>$null)) {
+                        if ($testFile = (New-Item @testFileArgs)) {
                             Remove-Item -Path $testFile
 
                             if (-not (Test-Path $modulesLocation)) {
