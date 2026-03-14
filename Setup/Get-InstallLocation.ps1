@@ -57,7 +57,10 @@ else {
         Write-Verbose "Checking Module Path: $path"
 
         if ($path -ilike "*\Documents\PowerShell*" -or $path -ilike "*\Documents\WindowsPowerShell*") {
+            Write-Verbose "Found Eligible PowerShell Module Path: $path"
             return (Join-Path $path $MODULE_NAME)
         }
     }
+
+    Write-Verbose "No Eligible PowerShell Module Path Found!"
 }

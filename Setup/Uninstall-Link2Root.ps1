@@ -111,7 +111,7 @@ if (-not (& "$PSScriptRoot\Test-Installation.ps1" -Silent -PassThru)) {
     if (-not $Silent) {
         Write-Component "Link2Root" -NoNewline
         Write-Host " is " -NoNewline
-        Write-Host "not currently installed!" -ForegroundColor Yellow
+        Write-Host "Not Currently Installed!" -ForegroundColor DarkYellow
     }
 
     if ($PassThru) {
@@ -202,7 +202,7 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
                             Write-Host " is " -NoNewline
                             Write-Host "Pending Manual Uninstallation" -NoNewline -ForegroundColor DarkYellow
                             Write-Host " from " -NoNewline
-                            Write-Path $modulePath -NoNewline
+                            Write-Path $modulePath
                         }
                     }
                     else {

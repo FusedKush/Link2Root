@@ -113,7 +113,7 @@ param(
 
 
 Import-Module "$PSScriptRoot\Utils.psm1"
-
+ 
 enum InstallVerb {
     Install
     Reinstall
@@ -312,8 +312,9 @@ function Set-InstallVerb {
 
 if ((& "$PSScriptRoot\Test-Installation.ps1" -Silent -PassThru) -and -not $Reinstall) {
     if (-not $Silent) {
-        Write-Path "Link2Root" -NoNewline
-        Write-Host " is Already Installed!" -ForegroundColor Yellow
+        Write-Component "Link2Root" -NoNewline
+        Write-Host " is " -NoNewline
+        Write-Host "Already Installed!" -ForegroundColor DarkYellow
     }
 
     if ($PassThru) {
