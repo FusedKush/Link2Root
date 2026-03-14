@@ -219,6 +219,12 @@ function Move-TemporaryFolder {
         [string]$Destination
     )
 
+    [string]$destPath = $Destination
+
+    if (Test-Path $destPath) {
+        $destPath = Split-Path $destPath -Parent
+    }
+
     Write-Verbose "Moving Files from Temporary Directory '$(Split-Path $tempFolder -Leaf)' to $Destination"
     Move-Item -Path $tempFolder -Destination $Destination @NO_RISK_PARAMS | Out-Null
 
