@@ -471,8 +471,8 @@ try {
                                 "",
                                 "Do you want to create the PowerShell Module Folder on the Desktop to be manually moved into the /Documents folder?"
                             )) {
-                                [string]$manualPath = [System.Environment]::GetFolderPath("Desktop")
                                 [string]$modulesFolderName = (Split-Path $modulesLocation -Leaf)
+                                [string]$manualPath = New-TemporaryFolder
 
                                 if (-not (Test-Path $psFolder)) {
                                     New-InstallDirectory -Path $manualPath -Name $psFolderName
@@ -484,6 +484,7 @@ try {
                                 }
                                 
                                 Move-TemporaryFolder -TempFolder $tempFolder -Destination $manualPath
+                                Move-TemporaryFolder -TempFolder $manualPath -Destination ([System.Environment]::GetFolderPath("Desktop"))
 
                                 if (-not $Silent) {
                                     Write-Host "[" -NoNewline
