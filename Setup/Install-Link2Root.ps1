@@ -224,12 +224,15 @@ function Copy-ToTemporaryFolder {
     
         foreach ($resolvedPath in $resolvedPaths) {
             if (Test-Path $resolvedPath -PathType Container) {            
-                foreach ($child in (Get-ChildItem $Path -Filter $Filter)) {
-                    Copy-ToTemporaryFolder -Path $child -Destination $Destination -Filter $Filter -Include $Include -Exclude $Exclude
-                }
+                Copy-ToTemporaryFolder `
+                    -Path (Get-ChildItem $Path -Filter $Filter) `
+                    -Destination $Destination `
+                    -Filter $Filter `
+                    -Include $Include `
+                    -Exclude $Exclude
             }
             else {
-                if (Test-FilePattern $resolvedPath) {
+                if (Test-FilePattern $resolvedPath -Verbose:$VerbosePreference) {
                     Write-Verbose "Copying File: $resolvedPath"
                     Copy-Item -Path $resolvedPath -Destination $Destination -Filter $Filter @NO_RISK_PARAMS | Out-Null
                 
@@ -411,7 +414,7 @@ try {
                             @{
                                 Path = $PSScriptRoot
                                 Destination = "$tempFolder\Installation"
-                                Exclude = "Install-Link2Root.ps1"
+                                Exclude = "*[\/]Install-Link2Root.ps1"
                             },
                             @{
                                 Path = "$PSScriptRoot\..\Scripts"
