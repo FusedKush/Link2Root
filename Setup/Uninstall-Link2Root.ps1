@@ -86,14 +86,18 @@ param(
         be output to the host indicating the progress and status
         of the uninstallation and the individual components for Link2Root.
     #>
-    [switch]$Silent
+    [switch]$Silent,
+
+    [Alias("Reinstall", "Rollback")]
+    [Parameter(DontShow)]
+    [switch]$Install
 )
 
 
-Import-Module "$PSScriptRoot\Utils.psm1"
+Import-Module "$PSScriptRoot\Utils.psm1" -Verbose:(-not $Install)
 
-[string]$installLocation = & "$PSScriptRoot\Get-InstallLocation.ps1"
-[string]$modulePath = & "$PSScriptRoot\Get-InstallLocation.ps1" -GetModulePath
+[string]$installLocation = & "$PSScriptRoot\Get-InstallLocation.ps1" -Internal:$Install
+[string]$modulePath = & "$PSScriptRoot\Get-InstallLocation.ps1" -GetModulePath -Internal:$Install
 [string]$modulesLocation = Split-Path $modulePath -Parent
 [bool]$success = $false
 [bool]$failed = $false
@@ -107,7 +111,7 @@ if ($Force -and -not $PSBoundParameters.ContainsKey("Confirm")) {
     $ConfirmPreference = "None"
 }
 
-if (-not (& "$PSScriptRoot\Test-Installation.ps1" -Silent -PassThru)) {
+if (-not $Install -and -not (& "$PSScriptRoot\Test-Installation.ps1" -Silent -PassThru -Verbose:$false)) {
     if (-not $Silent) {
         Write-Component "Link2Root" -NoNewline
         Write-Host " is " -NoNewline

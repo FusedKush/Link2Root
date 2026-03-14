@@ -54,8 +54,16 @@ param(
     [switch]$TestPATH,
 
     [switch]$Silent,
-    [switch]$PassThru
+    [switch]$PassThru,
+
+    [Parameter(DontShow)]
+    [switch]$Internal
 )
+
+
+if ($Internal) {
+    $VerbosePreference = $false
+}
 
 
 Import-Module "$PSScriptRoot\Utils.psm1"

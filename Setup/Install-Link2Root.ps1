@@ -175,7 +175,8 @@ function Copy-ToTemporaryFolder {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory, Position = 1, ValueFromPipeline)]
-        [string]$Path,
+        [SupportsWildcards()]
+        [string[]]$Path,
 
         [Parameter(Mandatory, Position = 2)]
         [string]$Destination,
@@ -184,27 +185,22 @@ function Copy-ToTemporaryFolder {
     )
 
     process {
-        [hashtable]$copyItemArgs = @{
-            Path = $Path
-            Destination = $Destination
-            Filter = $Filter
-        }
-        [string]$resolvedPath = Resolve-Path $Path
+        [string[]]$resolvedPaths = Resolve-Path $Path
     
-        if (Test-Path $resolvedPath -PathType Container) {
-            $copyItemArgs["Container"] = $true
-            $copyItemArgs["Recurse"] = $true
+        foreach ($resolvedPath in $resolvedPaths) {
+            if (Test-Path $resolvedPath -PathType Container) {            
+                foreach ($child in (Get-ChildItem $Path)) {
+                    Copy-ToTemporaryFolder -Path $child -Destination $Destination -Filter $Filter
+                }
+            }
+            else {
+                Write-Verbose "Copying File: $resolvedPath"
+                Copy-Item -Path $resolvedPath -Destination $Destination -Filter $Filter @NO_RISK_PARAMS | Out-Null
             
-            Write-Verbose "Copying Files to Temporary Directory: $resolvedPath\"
-        }
-        else {
-            Write-Verbose "Copying File to Temporary Directory: $resolvedPath"
-        }
-    
-        Copy-Item @copyItemArgs @NO_RISK_PARAMS | Out-Null
-    
-        if (-not (Test-Path $Destination)) {
-            throw "Failed to Copy $Path to $Destination"
+                if (-not (Test-Path $Destination)) {
+                    throw "Failed to Copy $resolvedPath to $Destination"
+                }
+            }
         }
     }
 
@@ -310,7 +306,7 @@ function Set-InstallVerb {
 }
 
 
-if ((& "$PSScriptRoot\Test-Installation.ps1" -Silent -PassThru) -and -not $Reinstall) {
+if ((& "$PSScriptRoot\Test-Installation.ps1" -Silent -PassThru -Verbose:$false) -and -not $Reinstall) {
     if (-not $Silent) {
         Write-Component "Link2Root" -NoNewline
         Write-Host " is " -NoNewline
@@ -369,25 +365,20 @@ try {
                         $tempFolder = New-TemporaryFolder
                         [hashtable[]]$copyFileArgs = @(
                             @{
-                                Path = "$PSScriptRoot\..\Link2Root.psm1"
-                                Destination = "$tempFolder\Link2Root.psm1"
+                                Path = @(
+                                    "$PSScriptRoot\..\Link*Root.*",
+                                    "$PSScriptRoot\..\README.md"
+                                )
+                                Destination = $tempFolder
                             },
                             @{
-                                Path = "$PSScriptRoot\..\Link2Root.bat"
-                                Destination = "$tempFolder\Link2Root.bat"
-                            },
-                            @{
-                                Path = "$PSScriptRoot\..\LinkThis2Root.bat"
-                                Destination = "$tempFolder\LinkThis2Root.bat"
-                            },
-                            @{
-                                Path = "$PSScriptRoot"
+                                Path = $PSScriptRoot
                                 Destination = "$tempFolder\Installation"
                                 Filter = "*Uninstall*"
                             },
                             @{
                                 Path = "$PSScriptRoot\..\Scripts"
-                                Destination = "$tempFolder\Scripts"
+                                Destination = $tempFolder
                             }
                         )
             
@@ -397,7 +388,7 @@ try {
             
                         if ($scriptIsInstalled) {
                             Write-Verbose "Removing Existing Link2Root Installation Files for Reinstall"
-                            & "$PSScriptRoot\Uninstall-Link2Root.ps1" -KeepModule -KeepPATH -Silent -Force -Verbose:$VerbosePreference
+                            & "$PSScriptRoot\Uninstall-Link2Root.ps1" -Reinstall -KeepModule -KeepPATH -Silent -Force
                         }
             
                         Move-TemporaryFolder -TempFolder $tempFolder -Destination $installLocation
@@ -494,7 +485,7 @@ try {
                 
                             if ($moduleIsInstalled) {
                                 Write-Verbose "Removing Existing Link2Root PowerShell Module Files for Reinstall"
-                                & "$PSScriptRoot\Uninstall-Link2Root.ps1" -KeepInstall -KeepPATH -Silent -Force
+                                & "$PSScriptRoot\Uninstall-Link2Root.ps1" -Reinstall -KeepInstall -KeepPATH -Silent -Force
                             }
                 
                             Move-TemporaryFolder -TempFolder $tempFolder -Destination $modulePath
@@ -603,7 +594,7 @@ try {
                 )) {
                     if ($isAddedToPATH) {
                         Write-Verbose "Removing Link2Root from $username's PATH for Reinstall"
-                        & "$PSScriptRoot\Uninstall-Link2Root.ps1" -KeepInstall -KeepModule -Silent -Force
+                        & "$PSScriptRoot\Uninstall-Link2Root.ps1" -Reinstall -KeepInstall -KeepModule -Silent -Force
                     }
     
                     Set-UserPATH ($userPATH + @($installLocation))
@@ -659,7 +650,7 @@ catch {
         
         if ($success -and -not $NoRollBack) {
             Write-Host "Rolling back changes..." -ForegroundColor Yellow
-            & "$PSScriptRoot\Uninstall-Link2Root.ps1" -Silent -Force -Verbose:$VerbosePreference
+            & "$PSScriptRoot\Uninstall-Link2Root.ps1" -Rollback -Silent -Force -Verbose:$VerbosePreference
         }
 
         Write-Host ""

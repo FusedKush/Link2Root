@@ -38,8 +38,16 @@ param(
         By default and when this switch is omitted, the path to the
         Link2Root Installation Directory will be returned instead.
     #>
-    [switch]$GetModulePath
+    [switch]$GetModulePath,
+
+    [Parameter(DontShow)]
+    [switch]$Internal
 )
+
+
+if ($Internal) {
+    $VerbosePreference = $false
+}
 
 
 [string]$PROGRAM_NAME = "Link2Root"
