@@ -119,6 +119,7 @@ enum InstallVerb {
     Reinstall
 }
 
+[string[]]$SETUP_FOLDER_IGNORED_FILES = @("*[/\]Install-Link2Root.ps1")
 [InstallVerb]$installerVerb = "Install"
 [InstallVerb]$installVerb = "Install"
 
@@ -191,43 +192,6 @@ function Copy-ToTemporaryFolder {
 
     begin {
         [string[]]$allPaths = $Path
-
-        function Test-FilePattern {
-
-            [CmdletBinding()]
-            param(
-                [Parameter(Mandatory, Position = 1)]
-                [string]$Path
-            )
-
-            foreach ($Pattern in $Exclude) {
-                if ($Path -ilike $Pattern) {
-                    Write-Verbose "File Skipped due to Matching Exclusion Pattern:"
-                    Write-Verbose "  File: $Path"
-                    Write-Verbose "  Pattern: $Pattern"
-                    return $false
-                }
-            }
-
-            if ($Include.Count -gt 0) {
-                foreach ($Pattern in $Include) {
-                    if ($Path -ilike $Pattern) {
-                        Write-Verbose "File Included by Inclusion Pattern:"
-                        Write-Verbose "  File: $Path"
-                        Write-Verbose "  Pattern: $Pattern"
-                        return $true
-                    }
-                }
-                
-                Write-Verbose "File Skipped due to Non-Matching Inclusion Pattern:"
-                Write-Verbose "  File: $Path"
-                Write-Verbose "  Patterns: $($Include -join ', ')"
-                return $false
-            }
-
-            return $true
-
-        }
     }
 
     process {
@@ -240,12 +204,6 @@ function Copy-ToTemporaryFolder {
         
         [string[]]$resolvedPaths = Get-Item $allPaths -Filter $Filter
         
-        Write-Verbose "Resolved Paths for Copy to Temporary Directory:"
-
-        foreach ($currentPath in $resolvedPaths) {
-            Write-Verbose "  $currentPath"
-        }
-
         foreach ($resolvedPath in $resolvedPaths) {
             if (Test-Path $resolvedPath -PathType Container) {
                 [string]$newDestination = $Destination
@@ -274,7 +232,7 @@ function Copy-ToTemporaryFolder {
                     -Exclude $Exclude
             }
             else {
-                if (Test-FilePattern $resolvedPath -Verbose:$VerbosePreference) {
+                if (Test-FilePattern $resolvedPath -Filter $Filter -Include $Include -Exclude $Exclude -Verbose:$VerbosePreference) {
                     [string]$newDestination = $Destination
 
                     if ($Name.Trim() -ne "") {
@@ -471,7 +429,7 @@ try {
                                 Path = $PSScriptRoot
                                 Destination = $tempFolder
                                 Name = "Installation"
-                                Exclude = "*[\/]Install-Link2Root.ps1"
+                                Exclude = $SETUP_FOLDER_IGNORED_FILES
                             },
                             @{
                                 Path = "$PSScriptRoot\..\Scripts"
@@ -489,6 +447,7 @@ try {
                         }
             
                         Move-TemporaryFolder -TempFolder $tempFolder -Destination $installLocation
+                        Assert-InstallIntegrity -Source "$PSScriptRoot/../" -Install $installLocation -Exclude $SETUP_FOLDER_IGNORED_FILES -Verbose:$VerbosePreference
                         $success = $true
                     
                         if (-not $Silent) {
@@ -585,6 +544,7 @@ try {
                             }
                 
                             Move-TemporaryFolder -TempFolder $tempFolder -Destination $modulePath
+                            Assert-InstallIntegrity -Source "$PSScriptRoot/../" -Install $modulePath -Filter "Link2Root.ps?1" -Verbose:$VerbosePreference
                             $success = $true
                 
                             if (-not $Silent) {
