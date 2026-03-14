@@ -475,17 +475,22 @@ try {
                                 Write-Warning "PowerShell does not have permission to modify $psFolder. This often caused by Anti-Virus Software or Windows Security's `"Controlled Folder Access`" option."
                             }
                         
-                            if (-not (Test-Path "$desktop\$psFolderName") -and ($Force -or $yesToAll -or $PSCmdlet.ShouldContinue(
-                                "You will have to manually move the directory into your /Documents folder to install the PowerShell Module.",
-                                "Do you want to create the PowerShell Module Folder on the Desktop?",
-                                [ref]$yesToAll,
-                                [ref]$noToAll
-                            ))) {
-                                [string]$modulesFolderName = (Split-Path $modulesLocation -Leaf)
-
-                                New-InstallDirectory -Path $desktop -Name $psFolderName -PassThru |
-                                    New-InstallDirectory -Name $modulesFolderName -PassThru |
-                                        Move-TemporaryFolder -TempFolder $tempFolder
+                            if (-not (Test-Path "$desktop\$psFolderName")) {
+                                if ($Force -or $yesToAll -or $PSCmdlet.ShouldContinue(
+                                    "You will have to manually move the directory into your /Documents folder to install the PowerShell Module.",
+                                    "Do you want to create the PowerShell Module Folder on the Desktop?",
+                                    [ref]$yesToAll,
+                                    [ref]$noToAll
+                                )) {
+                                    [string]$modulesFolderName = (Split-Path $modulesLocation -Leaf)
+    
+                                    New-InstallDirectory -Path $desktop -Name $psFolderName -PassThru |
+                                        New-InstallDirectory -Name $modulesFolderName -PassThru |
+                                            Move-TemporaryFolder -TempFolder $tempFolder
+                                }
+                            }
+                            else {
+                                Write-Verbose "PowerShell Module Folder already exists at $(Resolve-Path "$desktop\$psFolderName")"
                             }
 
                             if (-not $Silent) {
