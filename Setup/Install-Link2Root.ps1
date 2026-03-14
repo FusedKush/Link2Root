@@ -473,18 +473,10 @@ try {
                             )) {
                                 [string]$modulesFolderName = (Split-Path $modulesLocation -Leaf)
                                 [string]$manualInstallTempFolder = New-TemporaryFolder
-                                [string]$manualInstallPath = $manualInstallTempFolder
 
-                                if (-not (Test-Path $psFolder)) {
-                                    New-InstallDirectory -Path $manualInstallPath -Name $psFolderName
-                                    $manualInstallPath += "/$psFolderName"
-                                }
-                                if (-not (Test-Path $modulesLocation)) {
-                                    New-InstallDirectory -Path $manualInstallPath -Name $modulesFolderName
-                                    $manualInstallPath += "/$modulesFolderName"
-                                }
-                                
-                                Move-TemporaryFolder -TempFolder $tempFolder -Destination $manualInstallPath
+                                New-InstallDirectory -Path $manualInstallTempFolder -Name $psFolderName
+                                New-InstallDirectory -Path "$manualInstallTempFolder\$psFolderName" -Name $modulesFolderName
+                                Move-TemporaryFolder -TempFolder $tempFolder -Destination "$manualInstallTempFolder\$psFolderName\$modulesFolderName"
                                 Move-TemporaryFolder -TempFolder $manualInstallTempFolder -Destination ([System.Environment]::GetFolderPath("Desktop"))
 
                                 if (-not $Silent) {
