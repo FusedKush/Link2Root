@@ -181,24 +181,61 @@ function Copy-ToTemporaryFolder {
         [Parameter(Mandatory, Position = 2)]
         [string]$Destination,
 
-        [string]$Filter
+        [string]$Filter,
+        [string[]]$Include,
+        [string[]]$Exclude
     )
 
+    begin {
+        function Test-FilePattern {
+
+            [CmdletBinding()]
+            param(
+                [Parameter(Mandatory, Position = 1)]
+                [string]$Path
+            )
+
+            foreach ($Pattern in $Exclude) {
+                if ($Path -ilike $Pattern) {
+                    Write-Verbose "File Skipped due to Matching Exclusion Pattern '$Pattern': $Path"
+                    return $false
+                }
+            }
+
+            if ($Include.Count -gt 0) {
+                foreach ($Pattern in $Include) {
+                    if ($Path -ilike $Pattern) {
+                        Write-Verbose "File Matches Inclusion Pattern '$Pattern': $Path"
+                        return $true
+                    }
+                }
+                
+                Write-Verbose "File Skipped due to Non-Matching Inclusion Pattern: $Path"
+                return $false
+            }
+
+            return $true
+
+        }
+    }
+
     process {
-        [string[]]$resolvedPaths = Resolve-Path $Path
+        [string[]]$resolvedPaths = Get-Item $Path -Filter $Filter
     
         foreach ($resolvedPath in $resolvedPaths) {
             if (Test-Path $resolvedPath -PathType Container) {            
-                foreach ($child in (Get-ChildItem $Path)) {
-                    Copy-ToTemporaryFolder -Path $child -Destination $Destination -Filter $Filter
+                foreach ($child in (Get-ChildItem $Path -Filter $Filter)) {
+                    Copy-ToTemporaryFolder -Path $child -Destination $Destination -Filter $Filter -Include $Include -Exclude $Exclude
                 }
             }
             else {
-                Write-Verbose "Copying File: $resolvedPath"
-                Copy-Item -Path $resolvedPath -Destination $Destination -Filter $Filter @NO_RISK_PARAMS | Out-Null
-            
-                if (-not (Test-Path $Destination)) {
-                    throw "Failed to Copy $resolvedPath to $Destination"
+                if (Test-FilePattern $resolvedPath) {
+                    Write-Verbose "Copying File: $resolvedPath"
+                    Copy-Item -Path $resolvedPath -Destination $Destination -Filter $Filter @NO_RISK_PARAMS | Out-Null
+                
+                    if (-not (Test-Path $Destination)) {
+                        throw "Failed to Copy $resolvedPath to $Destination"
+                    }
                 }
             }
         }
@@ -374,7 +411,7 @@ try {
                             @{
                                 Path = $PSScriptRoot
                                 Destination = "$tempFolder\Installation"
-                                Filter = "*Uninstall*"
+                                Exclude = "Install-Link2Root.ps1"
                             },
                             @{
                                 Path = "$PSScriptRoot\..\Scripts"
