@@ -318,7 +318,6 @@ if (-not $Silent) {
         Write-Host "Successfully uninstalled " -NoNewline -ForegroundColor Green
         Write-Host "Link2Root" -NoNewline -ForegroundColor Cyan
         Write-Host "!" -ForegroundColor Green
-        Write-Host ""
         Write-Host "You may have to restart your console session or terminal window for changes to take effect." -ForegroundColor DarkYellow
     }
     elseif (-not $failed) {
@@ -330,7 +329,6 @@ if (-not $Silent) {
         Write-Host "Only some components of " -NoNewline -ForegroundColor DarkYellow
         Write-Host "Link2Root" -NoNewline -ForegroundColor Cyan
         Write-Host " were successfully uninstalled." -ForegroundColor DarkYellow
-        Write-Host ""
         Write-Host "You may have to restart your console session or terminal window for changes to take effect." -ForegroundColor DarkYellow
     }
     else {
