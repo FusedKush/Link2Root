@@ -216,13 +216,14 @@ function Move-TemporaryFolder {
         [string]$TempFolder,
 
         [Parameter(Mandatory, Position = 2, ValueFromPipeline)]
-        [string]$Destination
+        [string]$Destination,
+
+        [Parameter(Position = 3)]
+        [string]$Name
     )
 
-    [string]$destPath = $Destination
-
-    if (Test-Path $destPath) {
-        $destPath = Split-Path $destPath -Parent
+    if ((Test-Path $Destination) -and $null -eq $Name) {
+        throw "The -Name parameter must be specified to Move-TemporaryFolder when the -Destination already exists."
     }
 
     Write-Verbose "Moving Files from Temporary Directory '$(Split-Path $tempFolder -Leaf)' to $Destination"
@@ -492,8 +493,7 @@ try {
     
                                     New-InstallDirectory -Path $desktop -Name $psFolderName -PassThru |
                                         New-InstallDirectory -Name $modulesFolderName -PassThru |
-                                            New-InstallDirectory -Name "Link2Root" -PassThru |
-                                                Move-TemporaryFolder -TempFolder $tempFolder
+                                            Move-TemporaryFolder -TempFolder $tempFolder -Name "Link2Root"
                                 }
                             }
                             else {
