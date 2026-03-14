@@ -721,12 +721,14 @@ catch {
         Write-Host "Failed to $(Get-InstallVerb -Installer -Lowercase) " -NoNewline -ForegroundColor Red
         Write-Component "Link2Root" -NoNewline
         Write-Host "!" -ForegroundColor Red
-        
-        if ($success -and -not $NoRollBack) {
-            Write-Host "Rolling back changes..." -ForegroundColor Yellow
-            & "$PSScriptRoot\Uninstall-Link2Root.ps1" -Rollback -Silent -Force -Verbose:$VerbosePreference
-        }
+    }
 
+    if ($success -and -not $NoRollBack -and -not $Reinstall) {
+        Write-Host "Rolling back changes..." -ForegroundColor DarkYellow
+        & "$PSScriptRoot\Uninstall-Link2Root.ps1" -Rollback -Silent -Force -Verbose:$VerbosePreference
+    }
+
+    if (-not $Silent) {
         Write-Host ""
     }
 
