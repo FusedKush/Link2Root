@@ -475,14 +475,16 @@ try {
                                 Write-Warning "PowerShell does not have permission to modify $psFolder. This often caused by Anti-Virus Software or Windows Security's `"Controlled Folder Access`" option."
                             }
                         
-                            if (-not (Test-Path "$desktop\$psFolderName") -and ($Force -or $PSCmdlet.ShouldContinue(
+                            if (-not (Test-Path "$desktop\$psFolderName") -and ($Force -or $yesToAll -or $PSCmdlet.ShouldContinue(
                                 "You will have to manually move the directory into your /Documents folder to install the PowerShell Module.",
-                                "Do you want to create the PowerShell Module Folder on the Desktop?"
+                                "Do you want to create the PowerShell Module Folder on the Desktop?",
+                                [ref]$yesToAll,
+                                [ref]$noToAll
                             ))) {
                                 [string]$modulesFolderName = (Split-Path $modulesLocation -Leaf)
 
                                 New-InstallDirectory -Path $desktop -Name $psFolderName -PassThru |
-                                    New-InstallDirectory -Path "$desktop\$psFolderName" -Name $modulesFolderName -PassThru |
+                                    New-InstallDirectory -Name $modulesFolderName -PassThru |
                                         Move-TemporaryFolder -TempFolder $tempFolder
                             }
 
