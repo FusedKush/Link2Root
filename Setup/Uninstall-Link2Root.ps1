@@ -200,7 +200,7 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
                             Write-Host "] The " -NoNewline
                             Write-Host "Link2Root PowerShell Module" -NoNewline -ForegroundColor Yellow
                             Write-Host " is " -NoNewline
-                            Write-Host "Pending Manual Installation" -NoNewline -ForegroundColor DarkYellow
+                            Write-Host "Pending Manual Uninstallation" -NoNewline -ForegroundColor DarkYellow
                             Write-Host " from " -NoNewline
                             Write-Host $modulePath -ForegroundColor Cyan
                             Write-Host "."

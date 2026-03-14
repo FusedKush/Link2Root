@@ -469,17 +469,15 @@ try {
                                 Write-Warning "PowerShell does not have permission to modify $psFolder. This often caused by Anti-Virus Software or Windows Security's `"Controlled Folder Access`" option."
                             }
                         
-                            if (-not (Test-Path "$desktop/$psFolderName") -and ($Force -or $PSCmdlet.ShouldContinue(
+                            if (-not (Test-Path "$desktop\$psFolderName") -and ($Force -or $PSCmdlet.ShouldContinue(
                                 "You will have to manually move the directory into your /Documents folder to install the PowerShell Module.",
                                 "Do you want to create the PowerShell Module Folder on the Desktop?"
                             ))) {
                                 [string]$modulesFolderName = (Split-Path $modulesLocation -Leaf)
-                                [string]$manualInstallTempFolder = New-TemporaryFolder
 
-                                New-InstallDirectory -Path $manualInstallTempFolder -Name $psFolderName
-                                New-InstallDirectory -Path "$manualInstallTempFolder\$psFolderName" -Name $modulesFolderName
-                                Move-TemporaryFolder -TempFolder $tempFolder -Destination "$manualInstallTempFolder\$psFolderName\$modulesFolderName"
-                                Move-TemporaryFolder -TempFolder $manualInstallTempFolder -Destination $desktop
+                                New-InstallDirectory -Path $desktop -Name $psFolderName
+                                New-InstallDirectory -Path "$desktop\$psFolderName" -Name $modulesFolderName
+                                Move-TemporaryFolder -TempFolder $tempFolder -Destination "$desktop\$psFolderName\$modulesFolderName"
                             }
 
                             if (-not $Silent) {
@@ -488,7 +486,10 @@ try {
                                 Write-Host "] The " -NoNewline
                                 Write-Host "Link2Root PowerShell Module" -NoNewline -ForegroundColor Yellow
                                 Write-Host " is " -NoNewline
-                                Write-Host "Pending Manual Installation to " -NoNewline -ForegroundColor DarkYellow
+                                Write-Host "Pending Manual Installation" -NoNewline -ForegroundColor DarkYellow
+                                Write-Host " from " -NoNewline
+                                Write-Host "$desktop\$psFolderName" -ForegroundColor Cyan
+                                Write-Host " to " -NoNewline
                                 Write-Host $modulePath -ForegroundColor Cyan
                             }
                         }    
