@@ -492,7 +492,7 @@ try {
                                     Write-Host "] The " -NoNewline
                                     Write-Host "Link2Root PowerShell Module" -NoNewline -ForegroundColor Yellow
                                     Write-Host " is " -NoNewline
-                                    Write-Host "Pending Manual Installation to " -NoNewline
+                                    Write-Host "Pending Manual Installation to " -NoNewline -ForegroundColor DarkYellow
                                     Write-Host $modulePath -ForegroundColor Cyan
                                 }
                             }
