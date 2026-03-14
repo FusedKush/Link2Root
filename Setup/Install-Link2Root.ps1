@@ -201,14 +201,13 @@ function Copy-ToTemporaryFolder {
     }
 
     end {
-        
-        [string[]]$resolvedPaths = Get-Item $allPaths -Filter $Filter
-        
         Write-Verbose "Resolved the following patterns..."
 
         foreach ($currentPath in $allPaths) {
             Write-Verbose "  $currentPath"
         }
+
+        [string[]]$resolvedPaths = Get-Item $allPaths -Filter $Filter
 
         Write-Verbose "...to the following filesystem paths:"
 
