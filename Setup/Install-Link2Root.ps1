@@ -252,7 +252,7 @@ function Copy-ToTemporaryFolder {
                 }
                 
                 Copy-ToTemporaryFolder `
-                    -Path (Get-ChildItem $Path -Filter $Filter) `
+                    -Path (Get-ChildItem $resolvedPath -Filter $Filter) `
                     -Destination $newDestination `
                     -Filter $Filter `
                     -Include $Include `
