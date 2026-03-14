@@ -282,7 +282,9 @@ function Move-TemporaryFolder {
         [string]$Destination,
 
         [Parameter(Position = 3)]
-        [string]$Name
+        [string]$Name,
+
+        [switch]$PassThru
     )
 
     if ((Test-Path $Destination) -and $null -eq $Name) {
@@ -291,7 +293,7 @@ function Move-TemporaryFolder {
 
     [string]$fullDestPath = $Destination
 
-    if ($null -ne $Name) {
+    if ($Name.Trim() -ne "") {
         $fullDestPath = Join-Path $fullDestPath $Name
     }
 
@@ -302,6 +304,10 @@ function Move-TemporaryFolder {
 
     if (-not (Test-Path $fullDestPath)) {
         throw "Failed to Move $tempFolder to $fullDestPath"
+    }
+
+    if ($PassThru) {
+        return Resolve-Path $fullDestPath
     }
 
 }
@@ -458,8 +464,8 @@ try {
                         }
             
                         Move-TemporaryFolder -TempFolder $tempFolder -Destination $installLocation
-                        Assert-InstallIntegrity -Source "$PSScriptRoot/../" -Install $installLocation -Exclude $SETUP_FOLDER_IGNORED_FILES -Verbose:$VerbosePreference
                         $success = $true
+                        Assert-InstallIntegrity -Source "$PSScriptRoot/../" -Install $installLocation -Exclude $SETUP_FOLDER_IGNORED_FILES -Verbose:$VerbosePreference
                     
                         if (-not $Silent) {
                             Write-ComponentUpdatePrefix -Success
@@ -555,8 +561,8 @@ try {
                             }
                 
                             Move-TemporaryFolder -TempFolder $tempFolder -Destination $modulePath
-                            Assert-InstallIntegrity -Source "$PSScriptRoot/../" -Install $modulePath -Filter "Link2Root.ps?1" -Verbose:$VerbosePreference
                             $success = $true
+                            Assert-InstallIntegrity -Source "$PSScriptRoot/../" -Install $modulePath -Filter "Link2Root.ps?1" -Verbose:$VerbosePreference
                 
                             if (-not $Silent) {
                                 Write-ComponentUpdatePrefix -Success
@@ -585,7 +591,8 @@ try {
     
                                     New-InstallDirectory -Path $desktop -Name $psFolderName -PassThru |
                                         New-InstallDirectory -Name $modulesFolderName -PassThru |
-                                            Move-TemporaryFolder -TempFolder $tempFolder -Name "Link2Root"
+                                            Move-TemporaryFolder -TempFolder $tempFolder -Name "Link2Root" -PassThru |
+                                                Assert-InstallIntegrity -Source "$PSScriptRoot/../" -Filter "Link2Root.ps?1" -Verbose:$VerbosePreference
                                 }
                             }
                             else {
