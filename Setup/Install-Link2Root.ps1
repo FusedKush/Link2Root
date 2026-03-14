@@ -279,7 +279,7 @@ try {
     }
 
     if ($Force -or $PSCmdlet.ShouldContinue("$installerVerb Link2Root", "Confirm", [ref]$yesToAll, [ref]$noToAll)) {
-        [string]$currentPATH = [System.Environment]::GetEnvironmentVariable("PATH", [EnvironmentVariableTarget]::User)
+        [string]$currentPATH = [System.Environment]::GetEnvironmentVariable("PATH", "User")
         [string[]]$currentPATHContents = $currentPATH -split ";"
         [bool]$scriptIsInstalled = (Test-Path $installLocation)
         [bool]$moduleIsInstalled = (Test-Path $modulePath)
@@ -565,7 +565,7 @@ try {
                     [System.Environment]::SetEnvironmentVariable(
                         "PATH",
                         ($currentPATHContents + @($installLocation)) -join ";",
-                        [EnvironmentVariableTarget]::User
+                        "User"
                     );
 
                     $success = $true

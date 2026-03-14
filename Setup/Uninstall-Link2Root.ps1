@@ -111,7 +111,7 @@ if ($Force -and -not $PSBoundParameters.ContainsKey("Confirm")) {
 }
 
 if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$yesToAll, [ref]$noToAll)) {
-    $currentPATH = [System.Environment]::GetEnvironmentVariable("PATH", [EnvironmentVariableTarget]::User)
+    $currentPATH = [System.Environment]::GetEnvironmentVariable("PATH", "User")
 
     # Uninstall the script in the current user's local appdata folder
     if (-not $KeepInstall) {
@@ -266,7 +266,7 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
                             return $true
                         
                         }) -join ";",
-                        [EnvironmentVariableTarget]::User
+                        "User"
                     );
                     $success = $true
                     
