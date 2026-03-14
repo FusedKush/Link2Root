@@ -26,7 +26,7 @@
     When the `-PassThru` switch is used, `Uninstall-Link2Root.ps1` returns
     `$true` if the uninstallation was successful or `$false` if it was not.
 #>
-[CmdletBinding(DefaultParameterSetName = "WithoutKeepingInstall", SupportsShouldProcess)]
+[CmdletBinding(SupportsShouldProcess)]
 param(
     <#
         Keep the installation of Link2Root in the
@@ -35,7 +35,6 @@ param(
         Using this option will allow you to continue using Link2Root
         without having to move or navigate to the downloaded `Link2Root/` folder.
     #>
-    [Parameter(ParameterSetName = "KeepingInstall", Mandatory)]
     [switch]$KeepInstall,
 
     <#
@@ -58,7 +57,6 @@ param(
 
         This switch can only be used if `-KeepInstall` is used as well.
     #>
-    [Parameter(ParameterSetName = "KeepingInstall")]
     [switch]$KeepPATH,
 
     <#
@@ -193,20 +191,39 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
                     }
                 }
                 catch {
-                    $failed = $true
-        
-                    if (-not $Silent) {
-                        Write-Host "[" -NoNewline
-                        Write-Host "-" -NoNewline -ForegroundColor Red
-                        Write-Host "] " -NoNewline
-                        Write-Host "Failed to uninstall" -NoNewline -ForegroundColor Red
-                        Write-Host " the " -NoNewline
-                        Write-Host "Link2Root PowerShell Module" -NoNewline -ForegroundColor Yellow
-                        Write-Host " from " -NoNewline
-                        Write-Host $modulePath -ForegroundColor Cyan
-                        Write-Host "!"
-                        Write-Host ""
-                        Write-Host $_ -ForegroundColor Red
+                    if ($_.ErrorDetails.Message -ilike "*Access to the path is denied.") {
+                        if (-not $Silent) {
+                            Write-Warning "PowerShell does not have permission to modify $modulePath. This often caused by Anti-Virus Software or Windows Security's `"Controlled Folder Access`" option."
+
+                            Write-Host "[" -NoNewline
+                            Write-Host "/" -NoNewline -ForegroundColor Red
+                            Write-Host "] The " -NoNewline
+                            Write-Host "Link2Root PowerShell Module" -NoNewline -ForegroundColor Yellow
+                            Write-Host " is " -NoNewline
+                            Write-Host "Pending Manual Installation" -NoNewline -ForegroundColor DarkYellow
+                            Write-Host " from " -NoNewline
+                            Write-Host $modulePath -ForegroundColor Cyan
+                            Write-Host "."
+                            Write-Host ""
+                            Write-Host $_ -ForegroundColor Red
+                        }
+                    }
+                    else {
+                        $failed = $true
+            
+                        if (-not $Silent) {
+                            Write-Host "[" -NoNewline
+                            Write-Host "-" -NoNewline -ForegroundColor Red
+                            Write-Host "] " -NoNewline
+                            Write-Host "Failed to uninstall" -NoNewline -ForegroundColor Red
+                            Write-Host " the " -NoNewline
+                            Write-Host "Link2Root PowerShell Module" -NoNewline -ForegroundColor Yellow
+                            Write-Host " from " -NoNewline
+                            Write-Host $modulePath -ForegroundColor Cyan
+                            Write-Host "!"
+                            Write-Host ""
+                            Write-Host $_ -ForegroundColor Red
+                        }
                     }
                 }
             }
@@ -216,7 +233,7 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
                 Write-Host "[" -NoNewline
                 Write-Host "/" -NoNewline -ForegroundColor DarkYellow
                 Write-Host "] " -NoNewline
-                Write-Host "The "
+                Write-Host "The " -NoNewline
                 Write-Host "Link2Root PowerShell Module" -NoNewline -ForegroundColor Yellow
                 Write-Host " is " -NoNewline
                 Write-Host "not currently installed" -NoNewline -ForegroundColor DarkYellow
@@ -239,7 +256,16 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
                 try {
                     [System.Environment]::SetEnvironmentVariable(
                         "PATH",
-                        $currentPATHContents.Where({ $_ -ine $installLocation }) -join ";",
+                        $currentPATHContents.Where({
+
+                            if ($_ -ine $installLocation) {
+                                Write-Verbose "Removing Entry from ${env:USERNAME}'s PATH: $_"
+                                return $false
+                            }
+
+                            return $true
+                        
+                        }) -join ";",
                         [EnvironmentVariableTarget]::User
                     );
                     $success = $true
@@ -292,6 +318,8 @@ if (-not $Silent) {
         Write-Host "Successfully uninstalled " -NoNewline -ForegroundColor Green
         Write-Host "Link2Root" -NoNewline -ForegroundColor Cyan
         Write-Host "!" -ForegroundColor Green
+        Write-Host ""
+        Write-Host "Any other console sessions or terminal windows may have to be restarted for changes to take effect." -ForegroundColor Yellow
     }
     elseif (-not $failed) {
         Write-Host "Nothing for " -NoNewline -ForegroundColor Yellow
@@ -302,6 +330,8 @@ if (-not $Silent) {
         Write-Host "Only some components of " -NoNewline -ForegroundColor DarkYellow
         Write-Host "Link2Root" -NoNewline -ForegroundColor Cyan
         Write-Host " were successfully uninstalled." -ForegroundColor DarkYellow
+        Write-Host ""
+        Write-Host "Any other console sessions or terminal windows may have to be restarted for changes to take effect." -ForegroundColor Yellow
     }
     else {
         Write-Host "Failed to uninstall " -NoNewline -ForegroundColor Red
