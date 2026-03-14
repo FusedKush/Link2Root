@@ -226,11 +226,17 @@ function Move-TemporaryFolder {
         throw "The -Name parameter must be specified to Move-TemporaryFolder when the -Destination already exists."
     }
 
-    Write-Verbose "Moving Files from Temporary Directory '$(Split-Path $tempFolder -Leaf)' to $Destination"
-    Move-Item -Path $tempFolder -Destination $Destination @NO_RISK_PARAMS | Out-Null
+    [string]$fullDestPath = $Destination
 
-    if (-not (Test-Path $Destination)) {
-        throw "Failed to Move Temporary Directory $tempFolder to $Destination"
+    if ($null -ne $Name) {
+        $fullDestPath = Join-Path $fullDestPath $Name
+    }
+
+    Write-Verbose "Moving Files from Temporary Directory '$(Split-Path $tempFolder -Leaf)' to $fullDestPath"
+    Move-Item -Path $tempFolder -Destination $fullDestPath @NO_RISK_PARAMS | Out-Null
+
+    if (-not (Test-Path $fullDestPath)) {
+        throw "Failed to Move $tempFolder to $fullDestPath"
     }
 
 }
