@@ -476,7 +476,7 @@ try {
 
                                 if (-not (Test-Path $psFolder)) {
                                     New-InstallDirectory -Path $manualPath -Name $psFolderName
-                                    $manualPath += "/$psFolder"
+                                    $manualPath += "/$psFolderName"
                                 }
                                 if (-not (Test-Path $modulesLocation)) {
                                     New-InstallDirectory -Path $manualPath -Name $modulesFolderName
