@@ -490,7 +490,7 @@ try {
                                 Write-Host " from " -NoNewline
                                 Write-Host "$desktop\$psFolderName" -ForegroundColor Cyan
                                 Write-Host " to " -NoNewline
-                                Write-Host $modulePath -ForegroundColor Cyan
+                                Write-Host $psFolder -ForegroundColor Cyan
                             }
                         }    
                     }
