@@ -258,7 +258,7 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
                         "PATH",
                         $currentPATHContents.Where({
 
-                            if ($_ -ine $installLocation) {
+                            if ($_ -ieq $installLocation) {
                                 Write-Verbose "Removing Entry from ${env:USERNAME}'s PATH: $_"
                                 return $false
                             }
