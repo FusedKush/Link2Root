@@ -261,11 +261,9 @@ function Get-FileHashRecursive {
 
             $joinedHashesWriter.Flush()
             $joinedHashes.Position = 0
-            return (Get-FileHash -InputStream $joinedHashes).Hash
         }
-        else {
-            return ""
-        }
+        
+        return (Get-FileHash -InputStream $joinedHashes).Hash
     }
 
 }
