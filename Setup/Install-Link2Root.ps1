@@ -472,19 +472,20 @@ try {
                                 "Do you want to create the PowerShell Module Folder on the Desktop?"
                             )) {
                                 [string]$modulesFolderName = (Split-Path $modulesLocation -Leaf)
-                                [string]$manualPath = New-TemporaryFolder
+                                [string]$manualInstallTempFolder = New-TemporaryFolder
+                                [string]$manualInstallPath = $manualInstallTempFolder
 
                                 if (-not (Test-Path $psFolder)) {
-                                    New-InstallDirectory -Path $manualPath -Name $psFolderName
-                                    $manualPath += "/$psFolderName"
+                                    New-InstallDirectory -Path $manualInstallPath -Name $psFolderName
+                                    $manualInstallPath += "/$psFolderName"
                                 }
                                 if (-not (Test-Path $modulesLocation)) {
-                                    New-InstallDirectory -Path $manualPath -Name $modulesFolderName
-                                    $manualPath += "/$modulesFolderName"
+                                    New-InstallDirectory -Path $manualInstallPath -Name $modulesFolderName
+                                    $manualInstallPath += "/$modulesFolderName"
                                 }
                                 
-                                Move-TemporaryFolder -TempFolder $tempFolder -Destination $manualPath
-                                Move-TemporaryFolder -TempFolder $manualPath -Destination ([System.Environment]::GetFolderPath("Desktop"))
+                                Move-TemporaryFolder -TempFolder $tempFolder -Destination $manualInstallPath
+                                Move-TemporaryFolder -TempFolder $manualInstallTempFolder -Destination ([System.Environment]::GetFolderPath("Desktop"))
 
                                 if (-not $Silent) {
                                     Write-Host "[" -NoNewline
