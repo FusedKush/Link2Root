@@ -468,8 +468,8 @@ try {
                             }
                         
                             if ($PSCmdlet.ShouldContinue(
-                                "",
-                                "Do you want to create the PowerShell Module Folder on the Desktop to be manually moved into the /Documents folder?"
+                                "You will have to manually move the directory into your /Documents folder to install the PowerShell Module.",
+                                "Do you want to create the PowerShell Module Folder on the Desktop?"
                             )) {
                                 [string]$modulesFolderName = (Split-Path $modulesLocation -Leaf)
                                 [string]$manualPath = New-TemporaryFolder
