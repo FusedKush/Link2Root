@@ -181,6 +181,9 @@ function Copy-ToTemporaryFolder {
         [Parameter(Mandatory, Position = 2)]
         [string]$Destination,
 
+        [Parameter(Position = 3)]
+        [string]$Name,
+
         [string]$Filter,
         [string[]]$Include,
         [string[]]$Exclude
@@ -197,7 +200,9 @@ function Copy-ToTemporaryFolder {
 
             foreach ($Pattern in $Exclude) {
                 if ($Path -ilike $Pattern) {
-                    Write-Verbose "File Skipped due to Matching Exclusion Pattern '$Pattern': $Path"
+                    Write-Verbose "File Skipped due to Matching Exclusion Pattern:"
+                    Write-Verbose "  File: $Path"
+                    Write-Verbose "  Pattern: $Pattern"
                     return $false
                 }
             }
@@ -205,12 +210,16 @@ function Copy-ToTemporaryFolder {
             if ($Include.Count -gt 0) {
                 foreach ($Pattern in $Include) {
                     if ($Path -ilike $Pattern) {
-                        Write-Verbose "File Matches Inclusion Pattern '$Pattern': $Path"
+                        Write-Verbose "File Included by Inclusion Pattern:"
+                        Write-Verbose "  File: $Path"
+                        Write-Verbose "  Pattern: $Pattern"
                         return $true
                     }
                 }
                 
-                Write-Verbose "File Skipped due to Non-Matching Inclusion Pattern: $Path"
+                Write-Verbose "File Skipped due to Non-Matching Inclusion Pattern:"
+                Write-Verbose "  File: $Path"
+                Write-Verbose "  Patterns: $($Include -join ', ')"
                 return $false
             }
 
@@ -223,21 +232,52 @@ function Copy-ToTemporaryFolder {
         [string[]]$resolvedPaths = Get-Item $Path -Filter $Filter
     
         foreach ($resolvedPath in $resolvedPaths) {
-            if (Test-Path $resolvedPath -PathType Container) {            
+            if (Test-Path $resolvedPath -PathType Container) {
+                [string]$newDestination = $Destination
+
+                if ($Name.Trim() -ne "") {
+                    $newDestination += "\$Name"
+                }
+                else {
+                    $newDestination += "\$(Split-Path $resolvedPath -Leaf)"
+                }
+
+                if (-not (Test-Path $newDestination)) {
+                    $newDestination = (
+                        New-InstallDirectory `
+                            -Path (Split-Path $newDestination -Parent) `
+                            -Name (Split-Path $newDestination -Leaf) `
+                            -PassThru
+                    )
+                }
+                
                 Copy-ToTemporaryFolder `
                     -Path (Get-ChildItem $Path -Filter $Filter) `
-                    -Destination $Destination `
+                    -Destination $newDestination `
                     -Filter $Filter `
                     -Include $Include `
                     -Exclude $Exclude
             }
             else {
                 if (Test-FilePattern $resolvedPath -Verbose:$VerbosePreference) {
-                    Write-Verbose "Copying File: $resolvedPath"
-                    Copy-Item -Path $resolvedPath -Destination $Destination -Filter $Filter @NO_RISK_PARAMS | Out-Null
+                    [string]$newDestination = $Destination
+
+                    if ($Name.Trim() -ne "") {
+                        $newDestination += "\$Name"
+                    }
+                    
+                    Write-Verbose "Copying File to Temporary Directory:"
+                    Write-Verbose "  File: $resolvedPath"
+                    Write-Verbose "  Destination: $Destination"
+
+                    if ($Name.Trim() -ne "") {
+                        Write-Verbose "  New Name: $Name"
+                    }
+
+                    Copy-Item -Path $resolvedPath -Destination $newDestination -Filter $Filter @NO_RISK_PARAMS | Out-Null
                 
                     if (-not (Test-Path $Destination)) {
-                        throw "Failed to Copy $resolvedPath to $Destination"
+                        throw "Failed to Copy $resolvedPath to $newDestination"
                     }
                 }
             }
@@ -271,7 +311,9 @@ function Move-TemporaryFolder {
         $fullDestPath = Join-Path $fullDestPath $Name
     }
 
-    Write-Verbose "Moving Files from Temporary Directory '$(Split-Path $tempFolder -Leaf)' to $fullDestPath"
+    Write-Verbose "Moving Files from Temporary Directory:"
+    Write-Verbose "  Name: $(Split-Path $tempFolder -Leaf)"
+    Write-Verbose "  Destination: $fullDestPath"
     Move-Item -Path $tempFolder -Destination $fullDestPath @NO_RISK_PARAMS | Out-Null
 
     if (-not (Test-Path $fullDestPath)) {
@@ -412,7 +454,8 @@ try {
                             },
                             @{
                                 Path = $PSScriptRoot
-                                Destination = "$tempFolder\Installation"
+                                Destination = $tempFolder
+                                Name = "Installation"
                                 Exclude = "*[\/]Install-Link2Root.ps1"
                             },
                             @{
@@ -427,7 +470,7 @@ try {
             
                         if ($scriptIsInstalled) {
                             Write-Verbose "Removing Existing Link2Root Installation Files for Reinstall"
-                            & "$PSScriptRoot\Uninstall-Link2Root.ps1" -Reinstall -KeepModule -KeepPATH -Silent -Force
+                            & "$PSScriptRoot\Uninstall-Link2Root.ps1" -Reinstall -KeepModule -KeepPATH -Silent -Force -Verbose:$VerbosePreference
                         }
             
                         Move-TemporaryFolder -TempFolder $tempFolder -Destination $installLocation
@@ -504,8 +547,7 @@ try {
                         
                         $tempFolder = New-TemporaryFolder
 
-                        Copy-ToTemporaryFolder -Path "$PSScriptRoot\..\Link2Root.psm1" -Destination "$tempFolder\Link2Root.psm1"
-                        Copy-ToTemporaryFolder -Path "$PSScriptRoot\..\Link2Root.psd1" -Destination "$tempFolder\Link2Root.psd1"
+                        Copy-ToTemporaryFolder -Path "$PSScriptRoot\..\Link2Root.ps?1" -Destination $tempFolder
 
                         # Test if we can write to the /Documents folder or not
                         if ($testFile = (New-Item @testFileArgs @NO_RISK_PARAMS)) {
@@ -524,7 +566,7 @@ try {
                 
                             if ($moduleIsInstalled) {
                                 Write-Verbose "Removing Existing Link2Root PowerShell Module Files for Reinstall"
-                                & "$PSScriptRoot\Uninstall-Link2Root.ps1" -Reinstall -KeepInstall -KeepPATH -Silent -Force
+                                & "$PSScriptRoot\Uninstall-Link2Root.ps1" -Reinstall -KeepInstall -KeepPATH -Silent -Force -Verbose:$VerbosePreference
                             }
                 
                             Move-TemporaryFolder -TempFolder $tempFolder -Destination $modulePath
@@ -633,7 +675,7 @@ try {
                 )) {
                     if ($isAddedToPATH) {
                         Write-Verbose "Removing Link2Root from $username's PATH for Reinstall"
-                        & "$PSScriptRoot\Uninstall-Link2Root.ps1" -Reinstall -KeepInstall -KeepModule -Silent -Force
+                        & "$PSScriptRoot\Uninstall-Link2Root.ps1" -Reinstall -KeepInstall -KeepModule -Silent -Force -Verbose:$VerbosePreference
                     }
     
                     Set-UserPATH -PATH ((Get-UserPATH) + @($installLocation)) -Verbose:$VerbosePreference
