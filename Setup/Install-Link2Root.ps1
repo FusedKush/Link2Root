@@ -204,6 +204,18 @@ function Copy-ToTemporaryFolder {
         
         [string[]]$resolvedPaths = Get-Item $allPaths -Filter $Filter
         
+        Write-Verbose "Resolved the following patterns..."
+
+        foreach ($currentPath in $allPaths) {
+            Write-Verbose "  $currentPath"
+        }
+
+        Write-Verbose "...to the following filesystem paths:"
+
+        foreach ($currentPath in $resolvedPaths) {
+            Write-Verbose "  $currentPath"
+        }
+
         foreach ($resolvedPath in $resolvedPaths) {
             if (Test-Path $resolvedPath -PathType Container) {
                 [string]$newDestination = $Destination
