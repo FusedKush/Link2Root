@@ -190,6 +190,8 @@ function Copy-ToTemporaryFolder {
     )
 
     begin {
+        [string[]]$allPaths = $Path
+
         function Test-FilePattern {
 
             [CmdletBinding()]
@@ -229,8 +231,21 @@ function Copy-ToTemporaryFolder {
     }
 
     process {
-        [string[]]$resolvedPaths = Get-Item $Path -Filter $Filter
-    
+        if ($null -ne $_) {
+            $allPaths += @($_)
+        }
+    }
+
+    end {
+        
+        [string[]]$resolvedPaths = Get-Item $allPaths -Filter $Filter
+        
+        Write-Verbose "Resolved Paths for Copy to Temporary Directory:"
+
+        foreach ($currentPath in $resolvedPaths) {
+            Write-Verbose "  $currentPath"
+        }
+
         foreach ($resolvedPath in $resolvedPaths) {
             if (Test-Path $resolvedPath -PathType Container) {
                 [string]$newDestination = $Destination
@@ -274,7 +289,7 @@ function Copy-ToTemporaryFolder {
                         Write-Verbose "  New Name: $Name"
                     }
 
-                    Copy-Item -Path $resolvedPath -Destination $newDestination -Filter $Filter @NO_RISK_PARAMS | Out-Null
+                    Copy-Item -Path $resolvedPath -Destination $newDestination @NO_RISK_PARAMS | Out-Null
                 
                     if (-not (Test-Path $Destination)) {
                         throw "Failed to Copy $resolvedPath to $newDestination"
