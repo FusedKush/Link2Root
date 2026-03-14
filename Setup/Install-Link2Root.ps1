@@ -463,34 +463,33 @@ try {
                             }
                         }
                         else {
+                            [string]$desktop = ([System.Environment]::GetFolderPath("Desktop"))
+
                             if (-not $Silent) {
                                 Write-Warning "PowerShell does not have permission to modify $psFolder. This often caused by Anti-Virus Software or Windows Security's `"Controlled Folder Access`" option."
                             }
                         
-                            if ($PSCmdlet.ShouldContinue(
+                            if (-not (Test-Path "$desktop/$psFolderName") -and ($Force -or $PSCmdlet.ShouldContinue(
                                 "You will have to manually move the directory into your /Documents folder to install the PowerShell Module.",
                                 "Do you want to create the PowerShell Module Folder on the Desktop?"
-                            )) {
+                            ))) {
                                 [string]$modulesFolderName = (Split-Path $modulesLocation -Leaf)
                                 [string]$manualInstallTempFolder = New-TemporaryFolder
 
                                 New-InstallDirectory -Path $manualInstallTempFolder -Name $psFolderName
                                 New-InstallDirectory -Path "$manualInstallTempFolder\$psFolderName" -Name $modulesFolderName
                                 Move-TemporaryFolder -TempFolder $tempFolder -Destination "$manualInstallTempFolder\$psFolderName\$modulesFolderName"
-                                Move-TemporaryFolder -TempFolder $manualInstallTempFolder -Destination ([System.Environment]::GetFolderPath("Desktop"))
-
-                                if (-not $Silent) {
-                                    Write-Host "[" -NoNewline
-                                    Write-Host "/" -NoNewline -ForegroundColor Green
-                                    Write-Host "] The " -NoNewline
-                                    Write-Host "Link2Root PowerShell Module" -NoNewline -ForegroundColor Yellow
-                                    Write-Host " is " -NoNewline
-                                    Write-Host "Pending Manual Installation to " -NoNewline -ForegroundColor DarkYellow
-                                    Write-Host $modulePath -ForegroundColor Cyan
-                                }
+                                Move-TemporaryFolder -TempFolder $manualInstallTempFolder -Destination $desktop
                             }
-                            else {
-                                throw "The Link2Root Installer does not have access to $(Split-Path $psFolder -Parent)"
+
+                            if (-not $Silent) {
+                                Write-Host "[" -NoNewline
+                                Write-Host "/" -NoNewline -ForegroundColor Green
+                                Write-Host "] The " -NoNewline
+                                Write-Host "Link2Root PowerShell Module" -NoNewline -ForegroundColor Yellow
+                                Write-Host " is " -NoNewline
+                                Write-Host "Pending Manual Installation to " -NoNewline -ForegroundColor DarkYellow
+                                Write-Host $modulePath -ForegroundColor Cyan
                             }
                         }    
                     }
@@ -602,8 +601,7 @@ try {
             Write-Host "Successfully $($installerVerb.ToString().ToLower())ed " -NoNewline -ForegroundColor Green
             Write-Host "Link2Root" -NoNewline -ForegroundColor Cyan
             Write-Host "!" -ForegroundColor Green
-            Write-Host ""
-            Write-Host "Any other console sessions or terminal windows may have to be restarted for changes to take effect." -ForegroundColor Yellow
+            Write-Host "You may have to restart your console session or terminal window for changes to take effect." -ForegroundColor Yellow
         }
         else {
             Write-Host "Nothing for " -NoNewline -ForegroundColor Yellow
