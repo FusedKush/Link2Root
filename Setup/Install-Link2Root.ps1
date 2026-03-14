@@ -214,7 +214,7 @@ function Move-TemporaryFolder {
     )
 
     Write-Verbose "Moving Files from Temporary Directory '$(Split-Path $tempFolder -Leaf)' to $Destination"
-    Move-Item -Path $tempFolder -Destination $Destination | Out-Null
+    Move-Item -Path $tempFolder -Destination $Destination @NO_RISK_PARAMS | Out-Null
 
     if (-not (Test-Path $Destination)) {
         throw "Failed to Move Temporary Directory $tempFolder to $Destination"
@@ -234,7 +234,7 @@ function Remove-TemporaryFolder {
 
     if ($TempFolder -ilike "$tempLocation*" -and (Test-Path $tempFolder)) {
         Write-Verbose "Removing Temporary Directory: $tempFolder"
-        Remove-Item $tempFolder -Recurse -Force
+        Remove-Item $tempFolder -Recurse -Force @NO_RISK_PARAMS
 
         if (Test-Path $tempFolder) {
             Write-Warning "Failed to Remove Temporary Directory $tempFolder"
