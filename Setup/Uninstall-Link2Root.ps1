@@ -90,10 +90,7 @@ param(
 )
 
 
-[hashtable]$NO_RISK_PARAMS = @{
-    WhatIf = $false
-    Confirm = $false
-}
+Import-Module "$PSScriptRoot\Utils.psm1"
 
 [string]$installLocation = & "$PSScriptRoot\Get-InstallLocation.ps1"
 [string]$modulePath = & "$PSScriptRoot\Get-InstallLocation.ps1" -GetModulePath
@@ -111,8 +108,6 @@ if ($Force -and -not $PSBoundParameters.ContainsKey("Confirm")) {
 }
 
 if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$yesToAll, [ref]$noToAll)) {
-    $currentPATH = [System.Environment]::GetEnvironmentVariable("PATH", "User")
-
     # Uninstall the script in the current user's local appdata folder
     if (-not $KeepInstall) {
         if (Test-Path $installLocation) {
@@ -126,26 +121,22 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
                     $success = $true
         
                     if (-not $Silent) {
-                        Write-Host "[" -NoNewline
-                        Write-Host "+" -NoNewline -ForegroundColor Green
-                        Write-Host "] " -NoNewline
+                        Write-ComponentUpdatePrefix -Success
                         Write-Host "Successfully uninstalled " -NoNewline -ForegroundColor Green
-                        Write-Host "Link2Root" -NoNewline -ForegroundColor Yellow
+                        Write-Component "Link2Root" -NoNewline
                         Write-Host " from " -NoNewline
-                        Write-Host $installLocation -ForegroundColor Cyan
+                        Write-Path $installLocation
                     }
                 }
                 catch {
                     $failed = $true
         
                     if (-not $Silent) {
-                        Write-Host "[" -NoNewline
-                        Write-Host "-" -NoNewline -ForegroundColor Red
-                        Write-Host "] " -NoNewline
+                        Write-ComponentUpdatePrefix -Failed
                         Write-Host "Failed to uninstall " -NoNewline -ForegroundColor Red
-                        Write-Host "Link2Root" -NoNewline -ForegroundColor Yellow
+                        Write-Component "Link2Root" -NoNewline
                         Write-Host " from " -NoNewline
-                        Write-Host $installLocation -ForegroundColor Cyan
+                        Write-Path $installLocation
                         Write-Host "!"
                         Write-Host ""
                         Write-Host $_ -ForegroundColor Red
@@ -155,10 +146,8 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
         }
         else {
             if (-not $Silent) {
-                Write-Host "[" -NoNewline
-                Write-Host "/" -NoNewline -ForegroundColor DarkYellow
-                Write-Host "] " -NoNewline
-                Write-Host "Link2Root" -NoNewline -ForegroundColor Yellow
+                Write-ComponentUpdatePrefix
+                Write-Component "Link2Root" -NoNewline
                 Write-Host " is " -NoNewline
                 Write-Host "not currently installed" -NoNewline -ForegroundColor DarkYellow
                 Write-Host " in " -NoNewline
@@ -180,14 +169,12 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
                     $success = $true
                     
                     if (-not $Silent) {
-                        Write-Host "[" -NoNewline
-                        Write-Host "+" -NoNewline -ForegroundColor Green
-                        Write-Host "] " -NoNewline
+                        Write-ComponentUpdatePrefix -Success
                         Write-Host "Successfully uninstalled" -NoNewline -ForegroundColor Green
                         Write-Host " the " -NoNewline
-                        Write-Host "Link2Root PowerShell Module" -NoNewline -ForegroundColor Yellow
+                        Write-Component "Link2Root PowerShell Module" -NoNewline
                         Write-Host " from " -NoNewline
-                        Write-Host $modulePath -ForegroundColor Cyan
+                        Write-Path $modulePath
                     }
                 }
                 catch {
@@ -195,31 +182,24 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
                         if (-not $Silent) {
                             Write-Warning "PowerShell does not have permission to modify $modulePath. This often caused by Anti-Virus Software or Windows Security's `"Controlled Folder Access`" option."
 
-                            Write-Host "[" -NoNewline
-                            Write-Host "/" -NoNewline -ForegroundColor Red
-                            Write-Host "] The " -NoNewline
-                            Write-Host "Link2Root PowerShell Module" -NoNewline -ForegroundColor Yellow
+                            Write-ComponentUpdatePrefix
+                            Write-Component "Link2Root PowerShell Module" -NoNewline
                             Write-Host " is " -NoNewline
                             Write-Host "Pending Manual Uninstallation" -NoNewline -ForegroundColor DarkYellow
                             Write-Host " from " -NoNewline
-                            Write-Host $modulePath -ForegroundColor Cyan
-                            Write-Host "."
-                            Write-Host ""
-                            Write-Host $_ -ForegroundColor Red
+                            Write-Path $modulePath -NoNewline
                         }
                     }
                     else {
                         $failed = $true
             
                         if (-not $Silent) {
-                            Write-Host "[" -NoNewline
-                            Write-Host "-" -NoNewline -ForegroundColor Red
-                            Write-Host "] " -NoNewline
+                            Write-ComponentUpdatePrefix -Failed
                             Write-Host "Failed to uninstall" -NoNewline -ForegroundColor Red
                             Write-Host " the " -NoNewline
-                            Write-Host "Link2Root PowerShell Module" -NoNewline -ForegroundColor Yellow
+                            Write-Component "Link2Root PowerShell Module" -NoNewline
                             Write-Host " from " -NoNewline
-                            Write-Host $modulePath -ForegroundColor Cyan
+                            Write-Path $modulePath
                             Write-Host "!"
                             Write-Host ""
                             Write-Host $_ -ForegroundColor Red
@@ -230,67 +210,58 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
         }
         else {
             if (-not $Silent) {
-                Write-Host "[" -NoNewline
-                Write-Host "/" -NoNewline -ForegroundColor DarkYellow
-                Write-Host "] " -NoNewline
+                Write-ComponentUpdatePrefix
                 Write-Host "The " -NoNewline
-                Write-Host "Link2Root PowerShell Module" -NoNewline -ForegroundColor Yellow
+                Write-Component "Link2Root PowerShell Module" -NoNewline
                 Write-Host " is " -NoNewline
                 Write-Host "not currently installed" -NoNewline -ForegroundColor DarkYellow
                 Write-Host " in " -NoNewline
-                Write-Host $modulePath -ForegroundColor Cyan
+                Write-Path $modulePath
             }
         }
     }
 
     # Remove the installation directory from the Current User's PATH
     if (-not $KeepPATH) {
-        [string[]]$currentPATHContents = $currentPATH -split ";"
+        [string[]]$userPATH = Get-UserPATH
+        [string]$username = Get-FullyQualifiedUsername
 
-        if ($currentPATHContents -contains $installLocation) {
+        if (Test-UserPATH -Entry $installLocation -PATH $userPATH) {
             if ($yesToAll -or $PSCmdlet.ShouldProcess(
-                "Removing Link2Root from ${env:USERNAME}'s PATH",
-                "Remove Link2Root from ${env:USERNAME}'s PATH",
+                "Removing $installLocation from $username's PATH",
+                "Remove $installLocation from $username's PATH",
                 "Confirm`nAre you sure you want to perform this action?"
             )) {
                 try {
-                    [System.Environment]::SetEnvironmentVariable(
-                        "PATH",
-                        $currentPATHContents.Where({
+                    $userPATH.Where({
 
-                            if ($_ -ieq $installLocation) {
-                                Write-Verbose "Removing Entry from ${env:USERNAME}'s PATH: $_"
-                                return $false
-                            }
+                        if ($_ -ieq $installLocation) {
+                            Write-Verbose "Removing Entry from $username's PATH: $_"
+                            return $false
+                        }
 
-                            return $true
-                        
-                        }) -join ";",
-                        "User"
-                    );
+                        return $true
+                    
+                    }) | Set-UserPATH;
                     $success = $true
                     
                     if (-not $Silent) {
-                        Write-Host "[" -NoNewline
-                        Write-Host "+" -NoNewline -ForegroundColor Green
-                        Write-Host "] " -NoNewline
+                        Write-ComponentUpdatePrefix -Success
                         Write-Host "Successfully removed " -NoNewline -ForegroundColor Green
-                        Write-Host "Link2Root" -NoNewline -ForegroundColor Yellow
+                        Write-Component "Link2Root" -NoNewline
                         Write-Host " from " -NoNewline
-                        Write-Host "${env:USERNAME}'s PATH" -ForegroundColor Cyan
+                        Write-Path "$username's PATH"
                     }
                 }
                 catch {
                     $failed = $true
         
                     if (-not $Silent) {
-                        Write-Host "[" -NoNewline
-                        Write-Host "-" -NoNewline -ForegroundColor Red
-                        Write-Host "] " -NoNewline
+                        Write-ComponentUpdatePrefix -Failed
                         Write-Host "Failed to remove " -NoNewline -ForegroundColor Red
-                        Write-Host "Link2Root" -NoNewline -ForegroundColor Yellow
+                        Write-Component "Link2Root" -NoNewline
                         Write-Host " from " -NoNewline
-                        Write-Host "${env:USERNAME}'s PATH" -NoNewline -ForegroundColor Cyan
+                        Write-Path "$username's PATH" -NoNewline
                         Write-Host "!"
                         Write-Host ""
                         Write-Host $_ -ForegroundColor Red
@@ -300,14 +271,12 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
         }
         else {
             if (-not $Silent) {
-                Write-Host "[" -NoNewline
-                Write-Host "/" -NoNewline -ForegroundColor DarkYellow
-                Write-Host "] " -NoNewline
-                Write-Host "Link2Root" -NoNewline -ForegroundColor Yellow
+                Write-ComponentUpdatePrefix
+                Write-Component "Link2Root" -NoNewline
                 Write-Host " is " -NoNewline
                 Write-Host "not currently present" -NoNewline -ForegroundColor DarkYellow
                 Write-Host " in " -NoNewline
-                Write-Host "${env:USERNAME}'s PATH" -ForegroundColor Cyan
+                Write-Path "$username's PATH"
             }
         }
     }
@@ -318,25 +287,27 @@ if (-not $Silent) {
     
     if ($success -and -not $failed) {
         Write-Host "Successfully uninstalled " -NoNewline -ForegroundColor Green
-        Write-Host "Link2Root" -NoNewline -ForegroundColor Cyan
+        Write-Component "Link2Root" -NoNewline
         Write-Host "!" -ForegroundColor Green
-        Write-Host "You may have to restart your console session or terminal window for changes to take effect." -ForegroundColor DarkYellow
-    }
-    elseif (-not $failed) {
-        Write-Host "Nothing for " -NoNewline -ForegroundColor Yellow
-        Write-Host "Link2Root" -NoNewline -ForegroundColor Cyan
-        Write-Host " was uninstalled." -ForegroundColor Yellow
     }
     elseif ($success) {
         Write-Host "Only some components of " -NoNewline -ForegroundColor DarkYellow
-        Write-Host "Link2Root" -NoNewline -ForegroundColor Cyan
+        Write-Component "Link2Root" -NoNewline
         Write-Host " were successfully uninstalled." -ForegroundColor DarkYellow
-        Write-Host "You may have to restart your console session or terminal window for changes to take effect." -ForegroundColor DarkYellow
+    }
+    elseif (-not $failed) {
+        Write-Host "Nothing for " -NoNewline -ForegroundColor Yellow
+        Write-Component "Link2Root" -NoNewline
+        Write-Host " was uninstalled." -ForegroundColor Yellow
     }
     else {
         Write-Host "Failed to uninstall " -NoNewline -ForegroundColor Red
-        Write-Host "Link2Root" -NoNewline -ForegroundColor Cyan
+        Write-Component "Link2Root" -NoNewline
         Write-Host "!" -ForegroundColor Red
+    }
+    
+    if ($success) {
+        Write-EndRestartNotice
     }
 }
 

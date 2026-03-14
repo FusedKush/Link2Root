@@ -67,7 +67,7 @@ if ($TestInstall -and -not (Test-Path $installLocation -Type Container)) {
 if ($TestModule -and -not (Test-Path (& "$PSScriptRoot\Get-InstallLocation.ps1" -GetModulePath) -Type Container)) {
     return $false
 }
-if ($TestPATH -and -not ([System.Environment]::GetEnvironmentVariable("PATH", "User") -split ";" -contains $installLocation)) {
+if ($TestPATH -and -not (Test-UserPATH $installLocation)) {
     return $false
 }
 

@@ -112,15 +112,15 @@ param(
 )
 
 
+Import-Module "$PSScriptRoot\Utils.psm1"
+
 enum InstallVerb {
     Install
     Reinstall
 }
 
-[hashtable]$NO_RISK_PARAMS = @{
-    WhatIf = $false
-    Confirm = $false
-}
+[InstallVerb]$installerVerb = "Install"
+[InstallVerb]$installVerb = "Install"
 
 function New-TemporaryFolder {
 
@@ -183,28 +183,31 @@ function Copy-ToTemporaryFolder {
         [string]$Filter
     )
 
-    [hashtable]$copyItemArgs = @{
-        Path = $Path
-        Destination = $Destination
-        Filter = $Filter
+    process {
+        [hashtable]$copyItemArgs = @{
+            Path = $Path
+            Destination = $Destination
+            Filter = $Filter
+        }
+        [string]$resolvedPath = Resolve-Path $Path
+    
+        if (Test-Path $resolvedPath -PathType Container) {
+            $copyItemArgs["Container"] = $true
+            $copyItemArgs["Recurse"] = $true
+            
+            Write-Verbose "Copying Files to Temporary Directory: $resolvedPath\"
+        }
+        else {
+            Write-Verbose "Copying File to Temporary Directory: $resolvedPath"
+        }
+    
+        Copy-Item @copyItemArgs @NO_RISK_PARAMS | Out-Null
+    
+        if (-not (Test-Path $Destination)) {
+            throw "Failed to Copy $Path to $Destination"
+        }
     }
-    [string]$resolvedPath = Resolve-Path $Path
 
-    if (Test-Path $resolvedPath -PathType Container) {
-        $copyItemArgs["Container"] = $true
-        $copyItemArgs["Recurse"] = $true
-        
-        Write-Verbose "Copying Files to Temporary Directory: $resolvedPath\"
-    }
-    else {
-        Write-Verbose "Copying File to Temporary Directory: $resolvedPath"
-    }
-
-    Copy-Item @copyItemArgs @NO_RISK_PARAMS | Out-Null
-
-    if (-not (Test-Path $Destination)) {
-        throw "Failed to Copy $Path to $Destination"
-    }
 
 }
 
@@ -262,10 +265,54 @@ function Remove-TemporaryFolder {
 
 }
 
+function Get-InstallVerb {
+
+    [OutputType([string])]
+    param(
+        [Alias("Main")]
+        [switch]$Installer,
+
+        [Alias("lc")]
+        [switch]$Lowercase
+    )
+
+    [string]$verb = & {
+        if (-not $Installer) {
+            return $installVerb
+        }
+        else {
+            return $installerVerb
+        }
+    }
+
+    if (-not $Lowercase) { return $verb }
+    else                 { return $verb.ToLower() }
+
+}
+
+function Set-InstallVerb {
+
+    param(
+        [Parameter(Mandatory, Position = 1, ValueFromPipeline)]
+        [InstallVerb]$Verb,
+
+        [Alias("Main")]
+        [switch]$Installer
+    )
+
+    if (-not $Installer) {
+        $script:installVerb = $Verb
+    }
+    else {
+        $script:installerVerb = $Verb
+    }
+
+}
+
 
 if ((& "$PSScriptRoot\Test-Installation.ps1") -and -not $Reinstall) {
     if (-not $Silent) {
-        Write-Host "Link2Root" -NoNewline -ForegroundColor Cyan
+        Write-Path "Link2Root" -NoNewline
         Write-Host " is Already Installed!" -ForegroundColor Yellow
     }
 
@@ -278,7 +325,6 @@ if ((& "$PSScriptRoot\Test-Installation.ps1") -and -not $Reinstall) {
 }
 
 try {
-    [InstallVerb]$installerVerb = "Install"
     [string]$installLocation = & "$PSScriptRoot\Get-InstallLocation.ps1"
     [string]$modulePath = & "$PSScriptRoot\Get-InstallLocation.ps1" -GetModulePath
     [string]$modulesLocation = Split-Path $modulePath -Parent
@@ -294,31 +340,26 @@ try {
         $ConfirmPreference = "None"
     }
     if ($Reinstall -and ((Test-Path $installLocation) -or (Test-Path $modulePath))) {
-        $installerVerb = "Reinstall"
+        Set-InstallVerb Reinstall
     }
 
-    if ($Force -or $PSCmdlet.ShouldContinue("$installerVerb Link2Root", "Confirm", [ref]$yesToAll, [ref]$noToAll)) {
-        [string]$currentPATH = [System.Environment]::GetEnvironmentVariable("PATH", "User")
-        [string[]]$currentPATHContents = $currentPATH -split ";"
+    if ($Force -or $PSCmdlet.ShouldContinue("$(Get-InstallVerb -Installer) Link2Root", "Confirm", [ref]$yesToAll, [ref]$noToAll)) {
+        [string[]]$userPATH = Get-UserPATH
         [bool]$scriptIsInstalled = (Test-Path $installLocation)
         [bool]$moduleIsInstalled = (Test-Path $modulePath)
-        [bool]$isAddedToPATH = $currentPATHContents -contains $installLocation
+        [bool]$isAddedToPATH = Test-UserPATH -Entry $installLocation -PATH $userPATH
 
         # Install the script in the current user's local appdata folder
         if (-not $SkipScriptInstall) {
             if (-not $scriptIsInstalled -or $Reinstall) {
-                [InstallVerb]$installVerb = & {
-                    if (-not $scriptIsInstalled) {
-                        return "Install"
-                    }
-                    else {
-                        return "Reinstall"
-                    }
-                }
+                (& {
+                    if (-not $scriptIsInstalled) { return "Install" }
+                    else                         { return "Reinstall" }
+                }) | Set-InstallVerb
         
                 if ($yesToAll -or $PSCmdlet.ShouldProcess(
-                    "${installVerb}ing Link2Root in $installLocation",
-                    "$installVerb Link2Root in $installLocation",
+                    "$(Get-InstallVerb)ing Link2Root in $installLocation",
+                    "$(Get-InstallVerb) Link2Root in $installLocation",
                     "Confirm`nAre you sure you want to perform this action?"
                 )) {
                     [string]$tempFolder = ""
@@ -362,24 +403,20 @@ try {
                         $success = $true
                     
                         if (-not $Silent) {
-                            Write-Host "[" -NoNewline
-                            Write-Host "+" -NoNewline -ForegroundColor Green
-                            Write-Host "] " -NoNewline
-                            Write-Host "Successfully $($installVerb.ToString().ToLower())ed " -NoNewline -ForegroundColor Green
-                            Write-Host "Link2Root" -NoNewline -ForegroundColor Yellow
+                            Write-ComponentUpdatePrefix -Success
+                            Write-Host "Successfully $(Get-InstallVerb -lc)ed " -NoNewline -ForegroundColor Green
+                            Write-Component "Link2Root" -NoNewline
                             Write-Host " in " -NoNewline
-                            Write-Host $installLocation -ForegroundColor Cyan
+                            Write-Path $installLocation
                         }
                     }
                     catch {
                         if (-not $Silent) {
-                            Write-Host "[" -NoNewline
-                            Write-Host "-" -NoNewline -ForegroundColor Green
-                            Write-Host "] " -NoNewline
-                            Write-Host "Failed to $($installVerb.ToString().ToLower()) " -NoNewline -ForegroundColor Red
-                            Write-Host "Link2Root" -NoNewline -ForegroundColor Yellow
+                            Write-ComponentUpdatePrefix -Failed
+                            Write-Host "Failed to $(Get-InstallVerb -lc) " -NoNewline -ForegroundColor Red
+                            Write-Component "Link2Root" -NoNewline
                             Write-Host " in " -NoNewline
-                            Write-Host $installLocation -ForegroundColor Cyan
+                            Write-Path $installLocation
                         }
 
                         throw $_
@@ -391,26 +428,22 @@ try {
                     }
                 }
                 elseif (-not $Silent) {
-                    Write-Host "[" -NoNewline
-                    Write-Host "-" -NoNewline -ForegroundColor Green
-                    Write-Host "] " -NoNewline
-                    Write-Host "Link2Root" -NoNewline -ForegroundColor Yellow
+                    Write-ComponentUpdatePrefix -Failed
+                    Write-Component "Link2Root" -NoNewline
                     Write-Host " was " -NoNewline
-                    Write-Host "not $($installVerb.ToString().ToLower())ed" -NoNewline -ForegroundColor Red
+                    Write-Host "not $(Get-InstallVerb -lc)ed" -NoNewline -ForegroundColor Red
                     Write-Host " in " -NoNewline
-                    Write-Host $installLocation -ForegroundColor Cyan
+                    Write-Path $installLocation
                 }
             }
             else {
                 if (-not $Silent) {
-                    Write-Host "[" -NoNewline
-                    Write-Host "/" -NoNewline -ForegroundColor DarkYellow
-                    Write-Host "] " -NoNewline
-                    Write-Host "Link2Root" -NoNewline -ForegroundColor Yellow
+                    Write-ComponentUpdatePrefix
+                    Write-Component "Link2Root" -NoNewline
                     Write-Host " is " -NoNewline
                     Write-Host "already installed" -NoNewline -ForegroundColor DarkYellow
                     Write-Host " in " -NoNewline
-                    Write-Host $installLocation -ForegroundColor Cyan
+                    Write-Path $installLocation
                 }
             }
         }
@@ -418,18 +451,14 @@ try {
         # Install the module in the current user's PowerShell Modules folder
         if (-not $SkipModuleInstall) {
             if (-not $moduleIsInstalled -or $Reinstall) {
-                [InstallVerb]$installVerb = & {
-                    if (-not $moduleIsInstalled) {
-                        return "Install"
-                    }
-                    else {
-                        return "Reinstall"
-                    }
-                }
+                (& {
+                    if (-not $moduleIsInstalled) { return "Install" }
+                    else                         { return "Reinstall" }
+                }) | Set-InstallVerb
         
                 if ($yesToAll -or $PSCmdlet.ShouldProcess(
-                    "${installVerb}ing Link2Root PowerShell Module in $modulesLocation",
-                    "$installVerb Link2Root PowerShell Module in $modulesLocation",
+                    "$(Get-InstallVerb)ing Link2Root PowerShell Module in $modulesLocation",
+                    "$(Get-InstallVerb) Link2Root PowerShell Module in $modulesLocation",
                     "Confirm`nAre you sure you want to perform this action?"
                 )) {
                     [string]$tempFolder = ""
@@ -471,14 +500,12 @@ try {
                             $success = $true
                 
                             if (-not $Silent) {
-                                Write-Host "[" -NoNewline
-                                Write-Host "+" -NoNewline -ForegroundColor Green
-                                Write-Host "] " -NoNewline
-                                Write-Host "Successfully $($installVerb.ToString().ToLower())ed" -NoNewline -ForegroundColor Green
+                                Write-ComponentUpdatePrefix -Success
+                                Write-Host "Successfully $(Get-InstallVerb -lc)ed" -NoNewline -ForegroundColor Green
                                 Write-Host " the " -NoNewline
-                                Write-Host "Link2Root PowerShell Module" -NoNewline -ForegroundColor Yellow
+                                Write-Component "Link2Root PowerShell Module" -NoNewline
                                 Write-Host " in " -NoNewline
-                                Write-Host $modulePath -ForegroundColor Cyan
+                                Write-Path $modulePath
                             }
                         }
                         else {
@@ -490,7 +517,7 @@ try {
                         
                             if (-not (Test-Path "$desktop\$psFolderName")) {
                                 if ($Force -or $yesToAll -or $PSCmdlet.ShouldContinue(
-                                    "You will have to manually move the directory into your /Documents folder to install the PowerShell Module.",
+                                    "You will have to manually move the directory into your /Documents folder to $(Get-InstallVerb -lc) the PowerShell Module.",
                                     "Do you want to create the PowerShell Module Folder on the Desktop?",
                                     [ref]$yesToAll,
                                     [ref]$noToAll
@@ -507,29 +534,25 @@ try {
                             }
 
                             if (-not $Silent) {
-                                Write-Host "[" -NoNewline
-                                Write-Host "/" -NoNewline -ForegroundColor DarkYellow
-                                Write-Host "] The " -NoNewline
-                                Write-Host "Link2Root PowerShell Module" -NoNewline -ForegroundColor Yellow
+                                Write-ComponentUpdatePrefix
+                                Write-Component "Link2Root PowerShell Module" -NoNewline
                                 Write-Host " is " -NoNewline
-                                Write-Host "Pending Manual Installation" -NoNewline -ForegroundColor DarkYellow
+                                Write-Host "Pending Manual $(Get-InstallVerb)ation" -NoNewline -ForegroundColor DarkYellow
                                 Write-Host " from " -NoNewline
-                                Write-Host "$desktop\$psFolderName" -ForegroundColor Cyan
+                                Write-Path "$desktop\$psFolderName"
                                 Write-Host " to " -NoNewline
-                                Write-Host $psFolder -ForegroundColor Cyan
+                                Write-Path $psFolder
                             }
                         }    
                     }
                     catch {
                         if (-not $Silent) {
-                            Write-Host "[" -NoNewline
-                            Write-Host "+" -NoNewline -ForegroundColor Green
-                            Write-Host "] " -NoNewline
-                            Write-Host "Failed to $($installVerb.ToString().ToLower())" -NoNewline -ForegroundColor Red
+                            Write-ComponentUpdatePrefix -Success
+                            Write-Host "Failed to $(Get-InstallVerb -lc)" -NoNewline -ForegroundColor Red
                             Write-Host " the " -NoNewline
-                            Write-Host "Link2Root PowerShell Module" -NoNewline -ForegroundColor Yellow
+                            Write-Component "Link2Root PowerShell Module" -NoNewline
                             Write-Host " in " -NoNewline
-                            Write-Host $modulePath -ForegroundColor Cyan
+                            Write-Path $modulePath
                         }
 
                         throw $_
@@ -541,28 +564,24 @@ try {
                     }
                 }
                 elseif (-not $Silent) {
-                    Write-Host "[" -NoNewline
-                    Write-Host "-" -NoNewline -ForegroundColor Green
-                    Write-Host "] " -NoNewline
+                    Write-ComponentUpdatePrefix -Failed
                     Write-Host "The " -NoNewline
-                    Write-Host "Link2Root PowerShell Module" -NoNewline -ForegroundColor Yellow
+                    Write-Component "Link2Root PowerShell Module" -NoNewline
                     Write-Host " was " -NoNewline
-                    Write-Host "not $($installVerb.ToString().ToLower())ed" -NoNewline -ForegroundColor Red
+                    Write-Host "not $(Get-InstallVerb -lc)ed" -NoNewline -ForegroundColor Red
                     Write-Host " in " -NoNewline
-                    Write-Host $modulePath -ForegroundColor Cyan
+                    Write-Path $modulePath
                 }
             }
             else {
                 if (-not $Silent) {
-                    Write-Host "[" -NoNewline
-                    Write-Host "/" -NoNewline -ForegroundColor DarkYellow
-                    Write-Host "] " -NoNewline
+                    Write-ComponentUpdatePrefix
                     Write-Host "The " -NoNewline
-                    Write-Host "Link2Root PowerShell Module" -NoNewline -ForegroundColor Yellow
+                    Write-Component "Link2Root PowerShell Module" -NoNewline
                     Write-Host " is " -NoNewline
                     Write-Host "already installed" -NoNewline -ForegroundColor DarkYellow
                     Write-Host " in " -NoNewline
-                    Write-Host $modulePath -ForegroundColor Cyan
+                    Write-Path $modulePath
                 }
             }
         }
@@ -570,54 +589,42 @@ try {
         # Update the User's PATH
         if (-not $SkipPATHUpdate) {
             if (-not $isAddedToPATH -or $Reinstall) {
+                [string]$username = Get-FullyQualifiedUsername
                 [string]$installVerb = & {
-                    if (-not $isAddedToPATH) {
-                        return "Add"
-                    }
-                    else {
-                        return "Re-Add"
-                    }
+                    if (-not $isAddedToPATH) { return "Add" }
+                    else                     { return "Re-Add" }
                 }
                 
                 if ($yesToAll -or $PSCmdlet.ShouldProcess(
-                    "${installVerb}ing Link2Root to ${env:USERNAME}'s PATH",
-                    "$installVerb Link2Root to ${env:USERNAME}'s PATH",
+                    "${installVerb}ing $installLocation to $username's PATH",
+                    "$installVerb $installLocation to $username's PATH",
                     "Confirm`nAre you sure you want to perform this action?"
                 )) {
                     if ($isAddedToPATH) {
-                        Write-Verbose "Removing Link2Root from Current User's PATH for Reinstall..."
+                        Write-Verbose "Removing Link2Root from $username's PATH for Reinstall..."
                         & "$PSScriptRoot\Uninstall-Link2Root.ps1" -KeepInstall -KeepModule -Silent -Force
                     }
     
-                    [System.Environment]::SetEnvironmentVariable(
-                        "PATH",
-                        ($currentPATHContents + @($installLocation)) -join ";",
-                        "User"
-                    );
-
+                    Set-UserPATH ($userPATH + @($installLocation))
                     $success = $true
     
                     if (-not $Silent) {
-                        Write-Host "[" -NoNewline
-                        Write-Host "+" -NoNewline -ForegroundColor Green
-                        Write-Host "] " -NoNewline
-                        Write-Host "Successfully $($installVerb.ToLower())ed " -NoNewline -ForegroundColor Green
-                        Write-Host "Link2Root" -NoNewline -ForegroundColor Yellow
+                        Write-ComponentUpdatePrefix -Success
+                        Write-Host "Successfully $(Get-InstallVerb -lc)ed " -NoNewline -ForegroundColor Green
+                        Write-Component "Link2Root" -NoNewline
                         Write-Host " to " -NoNewline
-                        Write-Host "${env:USERNAME}'s PATH" -ForegroundColor Cyan
+                        Write-Path "$username's PATH"
                     }
                 }
             }
             else {
                 if (-not $Silent) {
-                    Write-Host "[" -NoNewline
-                    Write-Host "/" -NoNewline -ForegroundColor DarkYellow
-                    Write-Host "] " -NoNewline
-                    Write-Host "Link2Root" -NoNewline -ForegroundColor Yellow
+                    Write-ComponentUpdatePrefix
+                    Write-Component "Link2Root" -NoNewline
                     Write-Host " has " -NoNewline
                     Write-Host "already been added" -NoNewline -ForegroundColor DarkYellow
                     Write-Host " to " -NoNewline
-                    Write-Host "${env:USERNAME}'s PATH" -ForegroundColor Cyan
+                    Write-Path "$username's PATH"
                 }
             }
         }
@@ -627,15 +634,15 @@ try {
         Write-Host ""
 
         if ($success) {
-            Write-Host "Successfully $($installerVerb.ToString().ToLower())ed " -NoNewline -ForegroundColor Green
-            Write-Host "Link2Root" -NoNewline -ForegroundColor Cyan
+            Write-Host "Successfully $(Get-InstallVerb -Installer -Lowercase)ed " -NoNewline -ForegroundColor Green
+            Write-Component "Link2Root" -NoNewline
             Write-Host "!" -ForegroundColor Green
-            Write-Host "You may have to restart your console session or terminal window for changes to take effect." -ForegroundColor DarkYellow
+            Write-EndRestartNotice
         }
         else {
             Write-Host "Nothing for " -NoNewline -ForegroundColor Yellow
-            Write-Host "Link2Root" -NoNewline -ForegroundColor Cyan
-            Write-Host " was $($installerVerb.ToString().ToLower())ed." -ForegroundColor Yellow
+            Write-Component "Link2Root" -NoNewline
+            Write-Host " was $(Get-InstallVerb -Installer -Lowercase)ed." -ForegroundColor Yellow
         }
     }
     if ($PassThru) {
@@ -645,8 +652,8 @@ try {
 catch {
     if (-not $Silent) {
         Write-Host ""
-        Write-Host "Failed to $($installerVerb.ToString().ToLower()) " -NoNewline -ForegroundColor Red
-        Write-Host "Link2Root" -NoNewline -ForegroundColor Cyan
+        Write-Host "Failed to $(Get-InstallVerb -Installer -Lowercase) " -NoNewline -ForegroundColor Red
+        Write-Component "Link2Root" -NoNewline
         Write-Host "!" -ForegroundColor Red
         
         if ($success -and -not $NoRollBack) {

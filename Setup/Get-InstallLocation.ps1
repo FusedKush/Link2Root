@@ -29,6 +29,7 @@
     .\Get-InstallLocation.ps1 -GetModulePath
     C:\Users\FusedKush\Documents\PowerShell\Modules\Link2Root
 #>
+[CmdletBinding()]
 param(
     <#
         Indicates that the path to the Link2Root PowerShell Module should be
@@ -41,7 +42,7 @@ param(
 )
 
 
-[string]$PROGRAM_NAME = "PowerShell Link2Root"
+[string]$PROGRAM_NAME = "Link2Root"
 [string]$MODULE_NAME = "Link2Root"
 
 
@@ -49,8 +50,12 @@ if (-not $GetModulePath) {
     return (Join-Path $env:LOCALAPPDATA $PROGRAM_NAME)
 }
 else {
+    Write-Verbose "Retrieving Link2Root PowerShell Module Path..."
+
     # Search for the first user-specific module location
     foreach ($path in ($env:PSModulePath -split ";")) {
+        Write-Verbose "Checking Module Path: $path"
+
         if ($path -ilike "*\Documents\PowerShell*" -or $path -ilike "*\Documents\WindowsPowerShell*") {
             return (Join-Path $path $MODULE_NAME)
         }
