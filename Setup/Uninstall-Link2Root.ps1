@@ -191,7 +191,7 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
                     }
                 }
                 catch {
-                    if ($_.ErrorDetails.Message -ilike "*Access to the path is denied.") {
+                    if ($_.ErrorDetails.Message -ilike "*Access to the path*is denied.") {
                         if (-not $Silent) {
                             Write-Warning "PowerShell does not have permission to modify $modulePath. This often caused by Anti-Virus Software or Windows Security's `"Controlled Folder Access`" option."
 
