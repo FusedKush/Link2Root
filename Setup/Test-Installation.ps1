@@ -78,22 +78,22 @@ if ($TestInstall) {
         Write-Verbose "Link2Root IS installed in $installLocation"
         
         if (-not $Silent) {
-            Write-ComponentUpdatePrefix -Success
-            Write-Component "Link2Root" -NoNewline
+            _wcp -Success
+            _wc "Link2Root" -NoNewline
             Write-Host " Installed" -NoNewline -ForegroundColor Green
             Write-Host " in " -NoNewline
-            Write-Path $installLocation
+            _wp $installLocation
         }
     }
     else {
         Write-Verbose "Link2Root is NOT installed in $installLocation"
         
         if (-not $Silent) {
-            Write-ComponentUpdatePrefix -Failed
-            Write-Component "Link2Root" -NoNewline
+            _wcp -Failed
+            _wc "Link2Root" -NoNewline
             Write-Host " NOT Installed" -NoNewline -ForegroundColor Red
             Write-Host " in " -NoNewline
-            Write-Path $installLocation
+            _wp $installLocation
             $result = $false
         }
     }
@@ -105,22 +105,22 @@ if ($TestModule) {
         Write-Verbose "The Link2Root PowerShell Module IS installed in $modulePath"
 
         if (-not $Silent) {
-            Write-ComponentUpdatePrefix -Success
-            Write-Component "Link2Root PowerShell Module" -NoNewline
+            _wcp -Success
+            _wc "Link2Root PowerShell Module" -NoNewline
             Write-Host " Installed" -NoNewline -ForegroundColor Green
             Write-Host " in " -NoNewline
-            Write-Path $modulePath
+            _wp $modulePath
         }
     }
     else {
         Write-Verbose "The Link2Root PowerShell Module is NOT installed in $modulePath"
 
         if (-not $Silent) {
-            Write-ComponentUpdatePrefix -Failed
-            Write-Component "Link2Root PowerShell Module" -NoNewline
+            _wcp -Failed
+            _wc "Link2Root PowerShell Module" -NoNewline
             Write-Host " NOT Installed" -NoNewline -ForegroundColor Red
             Write-Host " in " -NoNewline
-            Write-Path $modulePath
+            _wp $modulePath
             $result = $false
         }
     }
@@ -132,22 +132,22 @@ if ($TestPATH) {
         Write-Verbose "Entry $installLocation FOUND in $username's PATH"
 
         if (-not $Silent) {
-            Write-ComponentUpdatePrefix -Success
-            Write-Component "Link2Root" -NoNewline
+            _wcp -Success
+            _wc "Link2Root" -NoNewline
             Write-Host " Added" -NoNewline -ForegroundColor Green
             Write-Host " to " -NoNewline
-            Write-Path "$username's PATH"
+            _wp "$username's PATH"
         }
     }
     else {
         Write-Verbose "Entry $installLocation NOT found in $username's PATH"
 
         if (-not $Silent) {
-            Write-ComponentUpdatePrefix -Failed
-            Write-Component "Link2Root" -NoNewline
+            _wcp -Failed
+            _wc "Link2Root" -NoNewline
             Write-Host " NOT Added" -NoNewline -ForegroundColor Red
             Write-Host " to " -NoNewline
-            Write-Path "$username's PATH"
+            _wp "$username's PATH"
         }
         $result = $false
     }
@@ -161,7 +161,7 @@ else {
 }
 
 if (-not $Silent) {
-    Write-Component "Link2Root" -NoNewline
+    _wc "Link2Root" -NoNewline
     Write-Host " is " -NoNewline
 
     if ($result) {

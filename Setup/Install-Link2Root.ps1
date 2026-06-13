@@ -380,7 +380,7 @@ function Set-InstallVerb {
 
 if ((& "$PSScriptRoot\Test-Installation.ps1" -Silent -PassThru -Internal) -and -not $Reinstall) {
     if (-not $Silent) {
-        Write-Component "Link2Root" -NoNewline
+        _wc "Link2Root" -NoNewline
         Write-Host " is " -NoNewline
         Write-Host "Already Installed!" -ForegroundColor DarkYellow
     }
@@ -468,20 +468,20 @@ try {
                         Assert-InstallIntegrity -Source "$PSScriptRoot/../" -Install $installLocation -Exclude $SETUP_FOLDER_IGNORED_FILES -Verbose:$VerbosePreference
                     
                         if (-not $Silent) {
-                            Write-ComponentUpdatePrefix -Success
+                            _wcp -Success
                             Write-Host "Successfully $(Get-InstallVerb -lc)ed " -NoNewline -ForegroundColor Green
-                            Write-Component "Link2Root" -NoNewline
+                            _wc "Link2Root" -NoNewline
                             Write-Host " in " -NoNewline
-                            Write-Path $installLocation
+                            _wp $installLocation
                         }
                     }
                     catch {
                         if (-not $Silent) {
-                            Write-ComponentUpdatePrefix -Failed
+                            _wcp -Failed
                             Write-Host "Failed to $(Get-InstallVerb -lc) " -NoNewline -ForegroundColor Red
-                            Write-Component "Link2Root" -NoNewline
+                            _wc "Link2Root" -NoNewline
                             Write-Host " in " -NoNewline
-                            Write-Path $installLocation
+                            _wp $installLocation
                         }
 
                         throw $_
@@ -493,22 +493,22 @@ try {
                     }
                 }
                 elseif (-not $Silent) {
-                    Write-ComponentUpdatePrefix -Failed
-                    Write-Component "Link2Root" -NoNewline
+                    _wcp -Failed
+                    _wc "Link2Root" -NoNewline
                     Write-Host " was " -NoNewline
                     Write-Host "not $(Get-InstallVerb -lc)ed" -NoNewline -ForegroundColor Red
                     Write-Host " in " -NoNewline
-                    Write-Path $installLocation
+                    _wp $installLocation
                 }
             }
             else {
                 if (-not $Silent) {
-                    Write-ComponentUpdatePrefix
-                    Write-Component "Link2Root" -NoNewline
+                    _wcp
+                    _wc "Link2Root" -NoNewline
                     Write-Host " is " -NoNewline
                     Write-Host "already installed" -NoNewline -ForegroundColor DarkYellow
                     Write-Host " in " -NoNewline
-                    Write-Path $installLocation
+                    _wp $installLocation
                 }
             }
         }
@@ -565,12 +565,12 @@ try {
                             Assert-InstallIntegrity -Source "$PSScriptRoot/../" -Install $modulePath -Filter "Link2Root.ps?1" -Verbose:$VerbosePreference
                 
                             if (-not $Silent) {
-                                Write-ComponentUpdatePrefix -Success
+                                _wcp -Success
                                 Write-Host "Successfully $(Get-InstallVerb -lc)ed" -NoNewline -ForegroundColor Green
                                 Write-Host " the " -NoNewline
-                                Write-Component "Link2Root PowerShell Module" -NoNewline
+                                _wc "Link2Root PowerShell Module" -NoNewline
                                 Write-Host " in " -NoNewline
-                                Write-Path $modulePath
+                                _wp $modulePath
                             }
                         }
                         else {
@@ -600,25 +600,25 @@ try {
                             }
 
                             if (-not $Silent) {
-                                Write-ComponentUpdatePrefix
-                                Write-Component "Link2Root PowerShell Module" -NoNewline
+                                _wcp
+                                _wc "Link2Root PowerShell Module" -NoNewline
                                 Write-Host " is " -NoNewline
                                 Write-Host "Pending Manual $(Get-InstallVerb)ation" -NoNewline -ForegroundColor DarkYellow
                                 Write-Host " from " -NoNewline
-                                Write-Path "$desktop\$psFolderName"
+                                _wp "$desktop\$psFolderName"
                                 Write-Host " to " -NoNewline
-                                Write-Path $psFolder
+                                _wp $psFolder
                             }
                         }    
                     }
                     catch {
                         if (-not $Silent) {
-                            Write-ComponentUpdatePrefix -Success
+                            _wcp -Success
                             Write-Host "Failed to $(Get-InstallVerb -lc)" -NoNewline -ForegroundColor Red
                             Write-Host " the " -NoNewline
-                            Write-Component "Link2Root PowerShell Module" -NoNewline
+                            _wc "Link2Root PowerShell Module" -NoNewline
                             Write-Host " in " -NoNewline
-                            Write-Path $modulePath
+                            _wp $modulePath
                         }
 
                         throw $_
@@ -630,24 +630,24 @@ try {
                     }
                 }
                 elseif (-not $Silent) {
-                    Write-ComponentUpdatePrefix -Failed
+                    _wcp -Failed
                     Write-Host "The " -NoNewline
-                    Write-Component "Link2Root PowerShell Module" -NoNewline
+                    _wc "Link2Root PowerShell Module" -NoNewline
                     Write-Host " was " -NoNewline
                     Write-Host "not $(Get-InstallVerb -lc)ed" -NoNewline -ForegroundColor Red
                     Write-Host " in " -NoNewline
-                    Write-Path $modulePath
+                    _wp $modulePath
                 }
             }
             else {
                 if (-not $Silent) {
-                    Write-ComponentUpdatePrefix
+                    _wcp
                     Write-Host "The " -NoNewline
-                    Write-Component "Link2Root PowerShell Module" -NoNewline
+                    _wc "Link2Root PowerShell Module" -NoNewline
                     Write-Host " is " -NoNewline
                     Write-Host "already installed" -NoNewline -ForegroundColor DarkYellow
                     Write-Host " in " -NoNewline
-                    Write-Path $modulePath
+                    _wp $modulePath
                 }
             }
         }
@@ -675,22 +675,22 @@ try {
                     $success = $true
     
                     if (-not $Silent) {
-                        Write-ComponentUpdatePrefix -Success
+                        _wcp -Success
                         Write-Host "Successfully $(Get-InstallVerb -lc)ed " -NoNewline -ForegroundColor Green
-                        Write-Component "Link2Root" -NoNewline
+                        _wc "Link2Root" -NoNewline
                         Write-Host " to " -NoNewline
-                        Write-Path "$username's PATH"
+                        _wp "$username's PATH"
                     }
                 }
             }
             else {
                 if (-not $Silent) {
-                    Write-ComponentUpdatePrefix
-                    Write-Component "Link2Root" -NoNewline
+                    _wcp
+                    _wc "Link2Root" -NoNewline
                     Write-Host " has " -NoNewline
                     Write-Host "already been added" -NoNewline -ForegroundColor DarkYellow
                     Write-Host " to " -NoNewline
-                    Write-Path "$username's PATH"
+                    _wp "$username's PATH"
                 }
             }
         }
@@ -701,13 +701,13 @@ try {
 
         if ($success) {
             Write-Host "Successfully $(Get-InstallVerb -Installer -Lowercase)ed " -NoNewline -ForegroundColor Green
-            Write-Component "Link2Root" -NoNewline
+            _wc "Link2Root" -NoNewline
             Write-Host "!" -ForegroundColor Green
             Write-EndRestartNotice
         }
         else {
             Write-Host "Nothing for " -NoNewline -ForegroundColor Yellow
-            Write-Component "Link2Root" -NoNewline
+            _wc "Link2Root" -NoNewline
             Write-Host " was $(Get-InstallVerb -Installer -Lowercase)ed." -ForegroundColor Yellow
         }
     }
@@ -719,7 +719,7 @@ catch {
     if (-not $Silent) {
         Write-Host ""
         Write-Host "Failed to $(Get-InstallVerb -Installer -Lowercase) " -NoNewline -ForegroundColor Red
-        Write-Component "Link2Root" -NoNewline
+        _wc "Link2Root" -NoNewline
         Write-Host "!" -ForegroundColor Red
     }
 

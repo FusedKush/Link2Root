@@ -113,7 +113,7 @@ if ($Force -and -not $PSBoundParameters.ContainsKey("Confirm")) {
 
 if (-not $Install -and -not (& "$PSScriptRoot\Test-Installation.ps1" -Silent -PassThru -Internal)) {
     if (-not $Silent) {
-        Write-Component "Link2Root" -NoNewline
+        _wc "Link2Root" -NoNewline
         Write-Host " is " -NoNewline
         Write-Host "Not Currently Installed!" -ForegroundColor DarkYellow
     }
@@ -140,22 +140,22 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
                     $success = $true
         
                     if (-not $Silent) {
-                        Write-ComponentUpdatePrefix -Success
+                        _wcp -Success
                         Write-Host "Successfully uninstalled " -NoNewline -ForegroundColor Green
-                        Write-Component "Link2Root" -NoNewline
+                        _wc "Link2Root" -NoNewline
                         Write-Host " from " -NoNewline
-                        Write-Path $installLocation
+                        _wp $installLocation
                     }
                 }
                 catch {
                     $failed = $true
         
                     if (-not $Silent) {
-                        Write-ComponentUpdatePrefix -Failed
+                        _wcp -Failed
                         Write-Host "Failed to uninstall " -NoNewline -ForegroundColor Red
-                        Write-Component "Link2Root" -NoNewline
+                        _wc "Link2Root" -NoNewline
                         Write-Host " from " -NoNewline
-                        Write-Path $installLocation
+                        _wp $installLocation
                         Write-Host "!"
                         Write-Host ""
                         Write-Host $_ -ForegroundColor Red
@@ -165,8 +165,8 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
         }
         else {
             if (-not $Silent) {
-                Write-ComponentUpdatePrefix
-                Write-Component "Link2Root" -NoNewline
+                _wcp
+                _wc "Link2Root" -NoNewline
                 Write-Host " is " -NoNewline
                 Write-Host "not currently installed" -NoNewline -ForegroundColor DarkYellow
                 Write-Host " in " -NoNewline
@@ -188,12 +188,12 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
                     $success = $true
                     
                     if (-not $Silent) {
-                        Write-ComponentUpdatePrefix -Success
+                        _wcp -Success
                         Write-Host "Successfully uninstalled" -NoNewline -ForegroundColor Green
                         Write-Host " the " -NoNewline
-                        Write-Component "Link2Root PowerShell Module" -NoNewline
+                        _wc "Link2Root PowerShell Module" -NoNewline
                         Write-Host " from " -NoNewline
-                        Write-Path $modulePath
+                        _wp $modulePath
                     }
                 }
                 catch {
@@ -201,24 +201,24 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
                         if (-not $Silent) {
                             Write-Warning "PowerShell does not have permission to modify $modulePath. This often caused by Anti-Virus Software or Windows Security's `"Controlled Folder Access`" option."
 
-                            Write-ComponentUpdatePrefix
-                            Write-Component "Link2Root PowerShell Module" -NoNewline
+                            _wcp
+                            _wc "Link2Root PowerShell Module" -NoNewline
                             Write-Host " is " -NoNewline
                             Write-Host "Pending Manual Uninstallation" -NoNewline -ForegroundColor DarkYellow
                             Write-Host " from " -NoNewline
-                            Write-Path $modulePath
+                            _wp $modulePath
                         }
                     }
                     else {
                         $failed = $true
             
                         if (-not $Silent) {
-                            Write-ComponentUpdatePrefix -Failed
+                            _wcp -Failed
                             Write-Host "Failed to uninstall" -NoNewline -ForegroundColor Red
                             Write-Host " the " -NoNewline
-                            Write-Component "Link2Root PowerShell Module" -NoNewline
+                            _wc "Link2Root PowerShell Module" -NoNewline
                             Write-Host " from " -NoNewline
-                            Write-Path $modulePath
+                            _wp $modulePath
                             Write-Host "!"
                             Write-Host ""
                             Write-Host $_ -ForegroundColor Red
@@ -229,13 +229,13 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
         }
         else {
             if (-not $Silent) {
-                Write-ComponentUpdatePrefix
+                _wcp
                 Write-Host "The " -NoNewline
-                Write-Component "Link2Root PowerShell Module" -NoNewline
+                _wc "Link2Root PowerShell Module" -NoNewline
                 Write-Host " is " -NoNewline
                 Write-Host "not currently installed" -NoNewline -ForegroundColor DarkYellow
                 Write-Host " in " -NoNewline
-                Write-Path $modulePath
+                _wp $modulePath
             }
         }
     }
@@ -265,22 +265,22 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
                     $success = $true
                     
                     if (-not $Silent) {
-                        Write-ComponentUpdatePrefix -Success
+                        _wcp -Success
                         Write-Host "Successfully removed " -NoNewline -ForegroundColor Green
-                        Write-Component "Link2Root" -NoNewline
+                        _wc "Link2Root" -NoNewline
                         Write-Host " from " -NoNewline
-                        Write-Path "$username's PATH"
+                        _wp "$username's PATH"
                     }
                 }
                 catch {
                     $failed = $true
         
                     if (-not $Silent) {
-                        Write-ComponentUpdatePrefix -Failed
+                        _wcp -Failed
                         Write-Host "Failed to remove " -NoNewline -ForegroundColor Red
-                        Write-Component "Link2Root" -NoNewline
+                        _wc "Link2Root" -NoNewline
                         Write-Host " from " -NoNewline
-                        Write-Path "$username's PATH" -NoNewline
+                        _wp "$username's PATH" -NoNewline
                         Write-Host "!"
                         Write-Host ""
                         Write-Host $_ -ForegroundColor Red
@@ -290,12 +290,12 @@ if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$
         }
         else {
             if (-not $Silent) {
-                Write-ComponentUpdatePrefix
-                Write-Component "Link2Root" -NoNewline
+                _wcp
+                _wc "Link2Root" -NoNewline
                 Write-Host " is " -NoNewline
                 Write-Host "not currently present" -NoNewline -ForegroundColor DarkYellow
                 Write-Host " in " -NoNewline
-                Write-Path "$username's PATH"
+                _wp "$username's PATH"
             }
         }
     }
@@ -306,22 +306,22 @@ if (-not $Silent) {
     
     if ($success -and -not $failed) {
         Write-Host "Successfully uninstalled " -NoNewline -ForegroundColor Green
-        Write-Component "Link2Root" -NoNewline
+        _wc "Link2Root" -NoNewline
         Write-Host "!" -ForegroundColor Green
     }
     elseif ($success) {
         Write-Host "Only some components of " -NoNewline -ForegroundColor DarkYellow
-        Write-Component "Link2Root" -NoNewline
+        _wc "Link2Root" -NoNewline
         Write-Host " were successfully uninstalled." -ForegroundColor DarkYellow
     }
     elseif (-not $failed) {
         Write-Host "Nothing for " -NoNewline -ForegroundColor Yellow
-        Write-Component "Link2Root" -NoNewline
+        _wc "Link2Root" -NoNewline
         Write-Host " was uninstalled." -ForegroundColor Yellow
     }
     else {
         Write-Host "Failed to uninstall " -NoNewline -ForegroundColor Red
-        Write-Component "Link2Root" -NoNewline
+        _wc "Link2Root" -NoNewline
         Write-Host "!" -ForegroundColor Red
     }
     
