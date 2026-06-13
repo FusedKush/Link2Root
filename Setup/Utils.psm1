@@ -27,7 +27,7 @@
     By default, the contents of the current user's PATH
     are returned as an array of strings containing each
     individual path element. To retrieve the raw
-    PATH string, use the `-Raw` switch.
+    PATH string, use the `-AsString` switch.
 
     .NOTES
     Only the current user's PATH is returned, and the
@@ -39,13 +39,13 @@
 
     .OUTPUTS
     string[].
-    By default, `Get-UserPATH` returns an array of strings
-    containing the individual path elements of the
-    current user's PATH.
+    By default or when the `-AsArray` switch is used,
+    `Get-UserPATH` returns an array of strings containing
+    the individual path elements of the current user's PATH.
 
     .OUTPUTS
     string.
-    When the `-Raw` switch is used, `Get-UserPATH` returns
+    When the `-AsString` switch is used, `Get-UserPATH` returns
     a string containing the current user's PATH, in which
     each individual path element is separated by a semicolon (;).
 
@@ -60,24 +60,30 @@
 #>
 function Get-UserPATH {
 
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = "AsArray")]
     param(
         <#
-            Indicates that the function should return the 
-            current user's PATH as a single string in which each
-            individual path element is separated by a semicolon (;).
-
-            By default and when this switch is omitted, the
-            current user's PATH is returned as an array of strings
-            containing the individual path elements.
+            Indicates that the specified PATH should be resolved
+            to a PATH string containing the individual path elements
+            joined together with semicolons (;).
         #>
-        [switch]$Raw
+        [Parameter(ParameterSetName = "AsString", Mandatory)]
+        [switch]$AsString,
+        
+        <#
+            Indicates that the specified PATH should be resolved
+            to an array containing the individual path elements
+            making up the PATH.
+        #>
+        [Parameter(ParameterSetName = "AsArray")]
+        [switch]$AsArray
     )
 
-    [string]$path = [System.Environment]::GetEnvironmentVariable("PATH", "User")
+    if (-not $AsString -and -not $AsArray) {
+        $PSBoundParameters["AsArray"] = $true
+    }
 
-    if (-not $Raw) { return $path -split ";" }
-    else           { return $path }
+    return (Resolve-UserPATH ([System.Environment]::GetEnvironmentVariable("PATH", "User")) @PSBoundParameters)
 
 }
 
@@ -143,6 +149,7 @@ function Resolve-UserPATH {
             to a PATH string containing the individual path elements
             joined together with semicolons (;).
         #>
+        [Alias("AsString")]
         [Parameter(ParameterSetName = "AsString", Mandatory)]
         [switch]$ToString,
         
@@ -151,6 +158,7 @@ function Resolve-UserPATH {
             to an array containing the individual path elements
             making up the PATH.
         #>
+        [Alias("AsArray")]
         [Parameter(ParameterSetName = "AsArray", Mandatory)]
         [switch]$ToArray
     )
