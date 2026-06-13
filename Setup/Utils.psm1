@@ -165,12 +165,12 @@ function Resolve-UserPATH {
 
     process {
         if ($ToString) {
-            if ($PATH.Count -gt 1) { return $PATH -join ";" }
+            if ($PATH.Count -gt 1) { return $PATH.Where{ $_.Trim() } -join ";" }
             else                   { return $PATH }
         }
         else {
             if ($PATH.Count -gt 1) { return $PATH }
-            else                   { return $PATH -split ";" }
+            else                   { return ($PATH -split ";").Where{ $_.Trim() } }
         }
     }
 
@@ -318,7 +318,7 @@ function Test-UserPATH {
         [PSDefaultValue(Help = "The Current User's PATH")]
         [string[]]$PATH = (Get-UserPATH)
     )
-
+    
     process {
         return ((Resolve-UserPATH $PATH -ToArray) -contains $Entry)
     }
