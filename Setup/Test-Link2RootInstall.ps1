@@ -13,7 +13,7 @@
 
     .INPUTS
     None.
-    You cannot pipe objects to `Test-Installation.ps1`.
+    You cannot pipe objects to `Test-Link2RootInstall.ps1`.
 
     .OUTPUTS
     Bool.
@@ -21,15 +21,15 @@
     or `$false` if it is not.
 
     .EXAMPLE
-    .\Test-Installation.ps1
+    .\Test-Link2RootInstall.ps1
     False
 
     .EXAMPLE
-    .\Test-Installation.ps1 -TestModule
+    .\Test-Link2RootInstall.ps1 -TestModule
     True
 
     .EXAMPLE
-    .\Test-Installation.ps1 -TestInstall -TestPATH
+    .\Test-Link2RootInstall.ps1 -TestInstall -TestPATH
     False
 #>
 [CmdletBinding()]
@@ -64,7 +64,7 @@ param(
 Import-Module "$PSScriptRoot\Utils.psm1" -Verbose:($VerbosePreference -and -not $Internal)
 
 [bool]$result = $true
-[string]$installLocation = & "$PSScriptRoot\Get-InstallLocation.ps1"
+[string]$installLocation = & "$PSScriptRoot\Get-Link2RootInstall.ps1"
 
 
 Write-Verbose "Testing Current Installation Status of Link2Root"
@@ -99,7 +99,7 @@ if ($TestInstall) {
     }
 }
 if ($TestModule) {
-    [string]$modulePath = (& "$PSScriptRoot\Get-InstallLocation.ps1" -GetModulePath -Internal:$Internal)
+    [string]$modulePath = (& "$PSScriptRoot\Get-Link2RootInstall.ps1" -GetModulePath -Internal:$Internal)
     
     if (Test-Path $modulePath -Type Container) {
         Write-Verbose "The Link2Root PowerShell Module IS installed in $modulePath"

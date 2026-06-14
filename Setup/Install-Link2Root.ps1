@@ -378,7 +378,7 @@ function Set-InstallVerb {
 }
 
 
-if ((& "$PSScriptRoot\Test-Installation.ps1" -Silent -PassThru -Internal) -and -not $Reinstall) {
+if ((& "$PSScriptRoot\Test-Link2RootInstall.ps1" -Silent -PassThru -Internal) -and -not $Reinstall) {
     if (-not $Silent) {
         _wc "Link2Root" -NoNewline
         Write-Host " is " -NoNewline
@@ -394,8 +394,8 @@ if ((& "$PSScriptRoot\Test-Installation.ps1" -Silent -PassThru -Internal) -and -
 }
 
 try {
-    [string]$installLocation = & "$PSScriptRoot\Get-InstallLocation.ps1"
-    [string]$modulePath = & "$PSScriptRoot\Get-InstallLocation.ps1" -GetModulePath
+    [string]$installLocation = & "$PSScriptRoot\Get-Link2RootInstall.ps1"
+    [string]$modulePath = & "$PSScriptRoot\Get-Link2RootInstall.ps1" -GetModulePath
     [string]$modulesLocation = Split-Path $modulePath -Parent
     [string]$psFolder = Split-Path $modulesLocation -Parent
     [string]$psFolderName = Split-Path $psFolder -Leaf

@@ -14,19 +14,19 @@
 
     .INPUTS
     None.
-    You cannot pipe objects to `Get-InstallLocation.ps1`.
+    You cannot pipe objects to `Get-Link2RootInstall.ps1`.
 
     .OUTPUTS
     String.
-    `Get-InstallLocation.ps1` returns a string containing the path to
+    `Get-Link2RootInstall.ps1` returns a string containing the path to
     the Link2Root installation or module directory.
 
     .EXAMPLE
-    .\Get-InstallLocation.ps1
+    .\Get-Link2RootInstall.ps1
     C:\Users\FusedKush\AppData\Local\PowerShell Link2Root
 
     .EXAMPLE
-    .\Get-InstallLocation.ps1 -GetModulePath
+    .\Get-Link2RootInstall.ps1 -GetModulePath
     C:\Users\FusedKush\Documents\PowerShell\Modules\Link2Root
 #>
 [CmdletBinding()]

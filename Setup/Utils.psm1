@@ -306,7 +306,7 @@ function Test-UserPATH {
     param(
         [Parameter(Position = 1, ValueFromPipeline)]
         [PSDefaultValue(Help = "The Link2Root Installation Directory")]
-        [string]$Entry = (& "$PSScriptRoot\Get-InstallLocation.ps1" -Internal),
+        [string]$Entry = (& "$PSScriptRoot\Get-Link2RootInstall.ps1" -Internal),
 
         <#
             The PATH being searched, either as a string containing
@@ -986,7 +986,7 @@ function Get-FullyQualifiedUsername {
     [OutputType([string])]
     param()
 
-    return "\\${env:USERDOMAIN}\${env:USERNAME}"
+    return "${env:USERDOMAIN}\${env:USERNAME}"
 
 }
 

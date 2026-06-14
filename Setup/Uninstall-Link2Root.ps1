@@ -96,8 +96,8 @@ param(
 
 Import-Module "$PSScriptRoot\Utils.psm1" -Verbose:($VerbosePreference -and -not $Install)
 
-[string]$installLocation = & "$PSScriptRoot\Get-InstallLocation.ps1" -Internal:$Install
-[string]$modulePath = & "$PSScriptRoot\Get-InstallLocation.ps1" -GetModulePath -Internal:$Install
+[string]$installLocation = & "$PSScriptRoot\Get-Link2RootInstall.ps1" -Internal:$Install
+[string]$modulePath = & "$PSScriptRoot\Get-Link2RootInstall.ps1" -GetModulePath -Internal:$Install
 [string]$modulesLocation = Split-Path $modulePath -Parent
 [bool]$success = $false
 [bool]$failed = $false
@@ -111,7 +111,7 @@ if ($Force -and -not $PSBoundParameters.ContainsKey("Confirm")) {
     $ConfirmPreference = "None"
 }
 
-if (-not $Install -and -not (& "$PSScriptRoot\Test-Installation.ps1" -Silent -PassThru -Internal)) {
+if (-not $Install -and -not (& "$PSScriptRoot\Test-Link2RootInstall.ps1" -Silent -PassThru -Internal)) {
     if (-not $Silent) {
         _wc "Link2Root" -NoNewline
         Write-Host " is " -NoNewline
