@@ -32,19 +32,44 @@
     .\Test-Link2RootInstall.ps1 -TestInstall -TestPATH
     False
 #>
-[CmdletBinding()]
 param(
     <#
         Indicates that the existence of the
         Link2Root Installation Directory should be tested.
     #>
     [switch]$TestInstall,
+
+    <#
+        Skip checking the integrity of the Link2Root Installation Directory.
+
+        By default and when this switch is omitted, the integrity of the
+        Link2Root Installation Directory and all of the files within will
+        be validated and compared against the files in the parent directory
+        of this cmdlet.
+
+        This switch is implied when invoking this cmdlet from within the
+        Link2Root Installation Directory itself.
+    #>
+    [switch]$SkipInstallIntegrityCheck,
     
     <#
         Indicates that the existence of the
         Link2Root PowerShell Module should be tested.
     #>
     [switch]$TestModule,
+
+    <#
+        Skip checking the integrity of the Link2Root PowerShell Module.
+
+        By default and when this switch is omitted, the integrity of the
+        Link2Root PowerShell Module and all of the files within will
+        be validated and compared against the files in the parent directory
+        of this cmdlet.
+
+        This switch is implied when invoking this cmdlet from within the
+        Link2Root Installation Directory.
+    #>
+    [switch]$SkipModuleIntegrityCheck,
     
     <#
         Indicates that the existence of the
@@ -75,14 +100,41 @@ if (-not ($TestInstall -or $TestModule -or $TestPATH)) {
 
 if ($TestInstall) {
     if (Test-Path $installLocation -Type Container) {
+        [hashtable]$integrityCheckArgs = @{
+            Source = "$PSScriptRoot/../"
+            Install = $installLocation
+            Exclude = $SETUP_FOLDER_IGNORED_FILES
+            Verbose = $VerbosePreference
+        }
+        
         Write-Verbose "Link2Root IS installed in $installLocation"
         
-        if (-not $Silent) {
-            _wcp -Success
-            _wc "Link2Root" -NoNewline
-            Write-Host " Installed" -NoNewline -ForegroundColor Green
-            Write-Host " in " -NoNewline
-            _wp $installLocation
+        if (-not $SkipInstallIntegrityCheck -and (Split-Path $PSScriptRoot -Parent) -ieq $installLocation) {
+            Write-Verbose "Skipping Link2Root Installation Integrity Check because no reference files are available."
+            $SkipInstallIntegrityCheck = $true
+        }
+
+        if ($SkipInstallIntegrityCheck -or (Test-InstallIntegrity @integrityCheckArgs)) {    
+            if (-not $Silent) {
+                _wcp -Success
+                _wc "Link2Root" -NoNewline
+                Write-Host " Installed" -NoNewline -ForegroundColor Green
+                Write-Host " in " -NoNewline
+                _wp $installLocation
+            }
+        }
+        else {
+            Write-Verbose "Integrity Check Failed for $installLocation"
+
+            if (-not $Silent) {
+                _wcp -Failed
+                _wc "Link2Root" -NoNewline
+                Write-Host " has " -NoNewline
+                Write-Host "Missing or Damaged Files" -NoNewline -ForegroundColor Red
+                Write-Host " in " -NoNewline
+                _wp $installLocation
+                $result = $false
+            }
         }
     }
     else {
@@ -98,18 +150,46 @@ if ($TestInstall) {
         }
     }
 }
+
 if ($TestModule) {
     [string]$modulePath = (& "$PSScriptRoot\Get-Link2RootInstall.ps1" -GetModulePath -Internal:$Internal)
     
     if (Test-Path $modulePath -Type Container) {
+        [hashtable]$integrityCheckArgs = @{
+            Source = "$PSScriptRoot/../"
+            Install = $modulePath
+            Filter = "Link2Root.ps*1"
+            Verbose = $VerbosePreference
+        }
+
         Write-Verbose "The Link2Root PowerShell Module IS installed in $modulePath"
 
-        if (-not $Silent) {
-            _wcp -Success
-            _wc "Link2Root PowerShell Module" -NoNewline
-            Write-Host " Installed" -NoNewline -ForegroundColor Green
-            Write-Host " in " -NoNewline
-            _wp $modulePath
+        if (-not $SkipModuleIntegrityCheck -and (Split-Path $PSScriptRoot -Parent) -ieq $installLocation) {
+            Write-Verbose "Skipping Link2Root PowerShell Module Integrity Check because no reference files are available."
+            $SkipModuleIntegrityCheck = $true
+        }
+
+        if ($SkipModuleIntegrityCheck -or (Test-InstallIntegrity @integrityCheckArgs)) {
+            if (-not $Silent) {
+                _wcp -Success
+                _wc "Link2Root PowerShell Module" -NoNewline
+                Write-Host " Installed" -NoNewline -ForegroundColor Green
+                Write-Host " in " -NoNewline
+                _wp $modulePath
+            }
+        }
+        else {
+            Write-Verbose "Integrity Check Failed for $modulePath"
+
+            if (-not $Silent) {
+                _wcp -Failed
+                _wc "Link2Root PowerShell Module" -NoNewline
+                Write-Host " has " -NoNewline
+                Write-Host "Missing or Damaged Files" -NoNewline -ForegroundColor Red
+                Write-Host " in " -NoNewline
+                _wp $installLocation
+                $result = $false
+            }
         }
     }
     else {
@@ -125,6 +205,7 @@ if ($TestModule) {
         }
     }
 }
+
 if ($TestPATH) {
     [string]$username = Get-FullyQualifiedUsername
     
@@ -152,6 +233,7 @@ if ($TestPATH) {
         $result = $false
     }
 }
+
 
 if ($result) {
     Write-Verbose "Link2Root IS considered to be installed"

@@ -119,7 +119,6 @@ enum InstallVerb {
     Reinstall
 }
 
-[string[]]$SETUP_FOLDER_IGNORED_FILES = @("*[/\]Install-Link2Root.ps1")
 [InstallVerb]$installerVerb = "Install"
 [InstallVerb]$installVerb = "Install"
 

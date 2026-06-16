@@ -13,6 +13,8 @@
     Confirm = $false
 }
 
+[string[]]$SETUP_FOLDER_IGNORED_FILES = @("*[/\]Install-Link2Root.ps1")
+
 
 # User PATH Management #
 
