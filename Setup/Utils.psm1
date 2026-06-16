@@ -543,7 +543,14 @@ function Get-FileHashRecursive {
             level to use for output logging.
         #>
         [Parameter(DontShow)]
-        [int]$Indentation = 0
+        [int]$Indentation = 0,
+
+        <#
+            An internal parameter used to flag recursive calls
+            to properly handle filtering and output behavior.
+        #>
+        [Parameter(DontShow)]
+        [switch]$RecursiveCall
     )
 
     begin {
@@ -569,30 +576,31 @@ function Get-FileHashRecursive {
                 $resolvedPaths += Get-Item -Path $currentPath -Filter $Filter -ErrorAction Stop
             }
             catch {
-                Write-Verbose "$(Get-IndentString $Indentation)No Files Matched Pattern: $currentPath"
+                Write-Verbose "$(Get-IndentString $Indentation)[-] No Files Matched Pattern: $currentPath"
             }
         }
 
         foreach ($resolvedPath in $resolvedPaths) {
-            if (Test-Path $resolvedPath -PathType Container) {
-                Write-Verbose "$(Get-IndentString $Indentation)Computing Hash for Directory: $resolvedPath..."
-
-                [string]$directoryHash = Get-FileHashRecursive `
-                    "$resolvedPath/*" `
-                    -Algorithm $Algorithm `
-                    -Filter $Filter `
-                    -Include $Include `
-                    -Exclude $Exclude `
-                    -Indentation ($Indentation + 1)
-
-                Write-Verbose "$(Get-IndentString $Indentation)Computed Hash '$directoryhash' for Directory: $resolvedPath"
-                $childHashes.Add($directoryHash) | Out-Null
-            }
-            else {
-                if (Test-FilePattern $resolvedPath -Filter $Filter -Include $Include -Exclude $Exclude -Indentation $Indentation) {
+            if (-not $RecursiveCall -or (Test-FilePattern $resolvedPath -Filter $Filter -Include $Include -Exclude $Exclude -Indentation $Indentation)) {
+                if (Test-Path $resolvedPath -PathType Container) {
+                    Write-Verbose "$(Get-IndentString $Indentation)[>] Computing Hash for Directory: $resolvedPath..."
+    
+                    [string]$directoryHash = Get-FileHashRecursive `
+                        -Path "$resolvedPath/*" `
+                        -Algorithm $Algorithm `
+                        -Filter $Filter `
+                        -Include $Include `
+                        -Exclude $Exclude `
+                        -Indentation ($Indentation + 1) `
+                        -RecursiveCall
+    
+                    Write-Verbose "$(Get-IndentString $Indentation)[#] Computed Hash '$directoryhash' for Directory: $resolvedPath"
+                    $childHashes.Add($directoryHash) | Out-Null
+                }
+                else {
                     [string]$fileHash = (Get-FileHash -Path $resolvedPath -Algorithm $Algorithm).Hash
     
-                    Write-Verbose "$(Get-IndentString $Indentation)Computed Hash '$filehash' for File: $resolvedPath"
+                    Write-Verbose "$(Get-IndentString $Indentation)[#] Computed Hash '$filehash' for File: $resolvedPath"
                     $childHashes.Add($fileHash) | Out-Null
                 }
             }
@@ -703,23 +711,35 @@ function Test-InstallIntegrity {
         Filter = $Filter
         Include = $Include
         Exclude = $Exclude
+        Indentation = 2
     }
     [string]$resolvedInstallPath = Resolve-Path $Install
 
     
-    Write-Verbose "Verifying Installation Integrity for: $resolvedInstallPath"
+    Write-Verbose "[>] Verifying Installation Integrity for: $resolvedInstallPath"
+    Write-Verbose "  [>] Computing Installation Directory Hash..."
 
-    [string]$sourceHash = Get-FileHashRecursive -Path $Source @commonArgs -Indentation 1
-    [string]$installHash = Get-FileHashRecursive -Path $Install @commonArgs -Indentation 1
+    [string]$sourceHash = Get-FileHashRecursive -Path $Source @commonArgs
+
+    Write-Verbose "  [+] Source Hash: $sourceHash"
+    Write-Verbose "  [>] Computing Installation Directory Hash..."
+
+    [string]$installHash = Get-FileHashRecursive -Path $Install @commonArgs
     [bool]$result = $sourceHash -eq $installHash
-    [string]$resultVerb = & {
-        if ($result) { return "Passed" }
-        else         { return "Failed" }
+    [string]$resultIcon = ""
+    [string]$resultVerb = ""
+
+    if ($result) {
+        $resultIcon = "+"
+        $resultVerb = "PASSED"
+    }
+    else {
+        $resultIcon = "-"
+        $resultVerb = "FAILED"
     }
 
-    Write-Verbose "Installation Integrity Verification Check $resultVerb for: $resolvedInstallPath"
-    Write-Verbose "  Source Hash: $sourceHash"
-    Write-Verbose "  Installation Hash: $installHash"
+    Write-Verbose "  [$resultIcon] Install Hash: $installHash"
+    Write-Verbose "[$resultIcon] Installation Integrity Verification Check $resultVerb for: $resolvedInstallPath"
     return $result
 
 }
@@ -1057,28 +1077,34 @@ function Test-FilePattern {
         [int]$Indentation = 0
     )
 
+    [string]$fileType = & {
+        if ((Test-Path $Path -PathType Container))  { return "Directory" }
+        else                                        { return "File" }
+    }
+    [string]$fileName = Split-Path $Path -Leaf
+
     foreach ($Pattern in $Exclude) {
-        if ($Path -ilike $Pattern) {
-            Write-Verbose "$('  ' * $Indentation)File Skipped due to Matching Exclusion Pattern:"
-            Write-Verbose "$('  ' * $Indentation)  File: $Path"
-            Write-Verbose "$('  ' * $Indentation)  Pattern: $Pattern"
+        if ($Path -ilike $Pattern -or $fileName -ilike $Pattern) {
+            Write-Verbose "$('  ' * $Indentation)[/] $fileType Skipped due to Matching Exclusion Pattern:"
+            Write-Verbose "$('  ' * $Indentation)  [~] ${fileType}: $Path"
+            Write-Verbose "$('  ' * $Indentation)  [#] Pattern: $Pattern"
             return $false
         }
     }
 
     if ($Include.Count -gt 0) {
         foreach ($Pattern in $Include) {
-            if ($Path -ilike $Pattern) {
-                Write-Verbose "$('  ' * $Indentation)File Included by Inclusion Pattern:"
-                Write-Verbose "$('  ' * $Indentation)  File: $Path"
-                Write-Verbose "$('  ' * $Indentation)  Pattern: $Pattern"
+            if ($Path -ilike $Pattern -or $fileName -ilike $Pattern) {
+                Write-Verbose "$('  ' * $Indentation)[/] $fileType Included by Inclusion Pattern:"
+                Write-Verbose "$('  ' * $Indentation)  [~] ${fileType}: $Path"
+                Write-Verbose "$('  ' * $Indentation)  [#] Pattern: $Pattern"
                 return $true
             }
         }
         
-        Write-Verbose "$('  ' * $Indentation)File Skipped due to Non-Matching Inclusion Pattern:"
-        Write-Verbose "$('  ' * $Indentation)  File: $Path"
-        Write-Verbose "$('  ' * $Indentation)  Patterns: $($Include -join ', ')"
+        Write-Verbose "$('  ' * $Indentation)[/] $fileType Skipped due to Non-Matching Inclusion Pattern:"
+        Write-Verbose "$('  ' * $Indentation)  [~] ${fileType}: $Path"
+        Write-Verbose "$('  ' * $Indentation)  [#] Patterns: $($Include -join ', ')"
         return $false
     }
 
