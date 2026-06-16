@@ -568,7 +568,7 @@ function Get-FileHashRecursive {
     }
 
     end {
-        [System.IO.FileInfo[]]$resolvedPaths = @()
+        [System.IO.FileSystemInfo[]]$resolvedPaths = @()
         [System.Collections.Generic.SortedSet[string]]$childHashes = [System.Collections.Generic.SortedSet[string]]::new()
         [System.IO.MemoryStream]$joinedHashes = [System.IO.MemoryStream]::new()
         [System.IO.StreamWriter]$joinedHashesWriter = [System.IO.StreamWriter]::new($joinedHashes)
