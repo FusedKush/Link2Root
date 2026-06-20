@@ -255,18 +255,16 @@ if ($Silent) {
     $NoOutput = $NoProgress = $true
 }
 
-if (-not $NoProgress) { Enable-ProgressBars }
-else                  { Disable-ProgressBars }
-
-Write-Verbose "$(Get-IndentString $Indentation)[>] Checking Current Installation Status of Link2Root..."
+Write-Verbose "$(_gis $Indentation)[>] Checking Current Installation Status of Link2Root..."
+Hide-ProgressBars $NoProgress
 Add-ProgressBar -Name "Checking Link2Root Installation Status" -DefaultPercentageChange 40 -InitialSecondsRemaining 3
 
 
 # Check for the presence and validity of the Link2Root Installation Files
-Update-ProgressBar -Status "Check Install Status" -CurrentOperation "Checking Status..." -PercentageChange 0
+_upb -Status "Check Install Status" -CurrentOperation "Checking Status..." -PercentageChange 0
 
 if ($TestInstall) {
-    Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Checking Current Install Status..."
+    Write-Verbose "$(_gis ($Indentation + 1))[>] Checking Current Install Status..."
 
     if (Test-Path $installLocation -Type Container) {
         [hashtable]$mainCheckArgs = @{
@@ -284,16 +282,16 @@ if ($TestInstall) {
             Indentation = ($Indentation + 2)
         }
         
-        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Link2Root IS installed in $installLocation"
+        Write-Verbose "$(_gis ($Indentation + 2))[+] Link2Root IS installed in $installLocation"
         
         if (-not $SkipInstallIntegrityCheck -and (Split-Path $PSScriptRoot -Parent) -ieq $installLocation) {
-            Write-Verbose "$(Get-IndentString ($Indentation + 2))[/] Skipping Link2Root Installation Integrity Check because no reference files are available."
+            Write-Verbose "$(_gis ($Indentation + 2))[/] Skipping Link2Root Installation Integrity Check because no reference files are available."
             $SkipInstallIntegrityCheck = $true
         }
 
         if ($SkipInstallIntegrityCheck -or ((Test-InstallIntegrity @mainCheckArgs) -and (Test-InstallIntegrity @setupCheckArgs))) {
-            Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] Current Install Status: INSTALLED"
-            Update-ProgressBar -Status "Check Install Status" -CurrentOperation "Component Installed!"
+            Write-Verbose "$(_gis ($Indentation + 1))[+] Current Install Status: INSTALLED"
+            _upb -Status "Check Install Status" -CurrentOperation "Component Installed!"
             Update-TestResult -Success
             
             if (-not $NoOutput) {
@@ -305,9 +303,9 @@ if ($TestInstall) {
             }
         }
         else {
-            Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] Integrity Check Failed for $installLocation"
-            Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Current Install Status: NOT INSTALLED"
-            Update-ProgressBar -Status "Check Install Status" -CurrentOperation "Component Damaged!"
+            Write-Verbose "$(_gis ($Indentation + 2))[-] Integrity Check Failed for $installLocation"
+            Write-Verbose "$(_gis ($Indentation + 1))[-] Current Install Status: NOT INSTALLED"
+            _upb -Status "Check Install Status" -CurrentOperation "Component Damaged!"
             Update-TestResult -Failure
 
             if (-not $NoOutput) {
@@ -321,9 +319,9 @@ if ($TestInstall) {
         }
     }
     else {
-        Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] Link2Root is NOT installed in $installLocation"
-        Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Current Install Status: NOT INSTALLED"
-        Update-ProgressBar -Status "Check Install Status" -CurrentOperation "Component Missing!"
+        Write-Verbose "$(_gis ($Indentation + 2))[-] Link2Root is NOT installed in $installLocation"
+        Write-Verbose "$(_gis ($Indentation + 1))[-] Current Install Status: NOT INSTALLED"
+        _upb -Status "Check Install Status" -CurrentOperation "Component Missing!"
         Update-TestResult -Failure
         
         if (-not $NoOutput) {
@@ -336,16 +334,16 @@ if ($TestInstall) {
     }
 }
 else {
-    Write-Verbose "$(Get-IndentString ($Indentation + 1))[/] Skipping Current Install Status Check"
-    Update-ProgressBar -Status "Check Install Status" -CurrentOperation "Component Test Skipped"
+    Write-Verbose "$(_gis ($Indentation + 1))[/] Skipping Current Install Status Check"
+    _upb -Status "Check Install Status" -CurrentOperation "Component Test Skipped"
 }
 
 
 # Check for the presence and validity of the Link2Root PowerShell Module
-Update-ProgressBar -Status "Check PowerShell Module Status" -CurrentOperation "Checking Status..." -PercentageChange 0
+_upb -Status "Check PowerShell Module Status" -CurrentOperation "Checking Status..." -PercentageChange 0
 
 if ($TestModule) {
-    Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Checking Current PowerShell Module Status..."
+    Write-Verbose "$(_gis ($Indentation + 1))[>] Checking Current PowerShell Module Status..."
     
     [string]$modulePath = (
         & "$PSScriptRoot\Get-Link2RootInstall.ps1" `
@@ -363,16 +361,16 @@ if ($TestModule) {
             Indentation = ($Indentation + 2)
         }
 
-        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] The Link2Root PowerShell Module IS installed in $modulePath"
+        Write-Verbose "$(_gis ($Indentation + 2))[+] The Link2Root PowerShell Module IS installed in $modulePath"
 
         if (-not $SkipModuleIntegrityCheck -and (Split-Path $PSScriptRoot -Parent) -ieq $installLocation) {
-            Write-Verbose "$(Get-IndentString ($Indentation + 2))[/] Skipping Link2Root PowerShell Module Integrity Check because no reference files are available."
+            Write-Verbose "$(_gis ($Indentation + 2))[/] Skipping Link2Root PowerShell Module Integrity Check because no reference files are available."
             $SkipModuleIntegrityCheck = $true
         }
 
         if ($SkipModuleIntegrityCheck -or (Test-InstallIntegrity @integrityCheckArgs)) {
-            Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] Current PowerShell Module Status: INSTALLED"
-            Update-ProgressBar -Status "Check PowerShell Module Status" -CurrentOperation "Component Installed!" -PercentageChange 20
+            Write-Verbose "$(_gis ($Indentation + 1))[+] Current PowerShell Module Status: INSTALLED"
+            _upb -Status "Check PowerShell Module Status" -CurrentOperation "Component Installed!" -PercentageChange 20
             Update-TestResult -Success
             
             if (-not $NoOutput) {
@@ -384,8 +382,8 @@ if ($TestModule) {
             }
         }
         else {
-            Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Current PowerShell Module Status: NOT INSTALLED"
-            Update-ProgressBar -Status "Check PowerShell Module Status" -CurrentOperation "Component Damaged!" -PercentageChange 20
+            Write-Verbose "$(_gis ($Indentation + 1))[-] Current PowerShell Module Status: NOT INSTALLED"
+            _upb -Status "Check PowerShell Module Status" -CurrentOperation "Component Damaged!" -PercentageChange 20
             Update-TestResult -Failure
             
             if (-not $NoOutput) {
@@ -399,9 +397,9 @@ if ($TestModule) {
         }
     }
     else {
-        Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] The Link2Root PowerShell Module is NOT installed in $modulePath"
-        Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Current PowerShell Module Status: NOT INSTALLED"
-        Update-ProgressBar -Status "Check PowerShell Module Status" -CurrentOperation "Component Missing!" -PercentageChange 20
+        Write-Verbose "$(_gis ($Indentation + 2))[-] The Link2Root PowerShell Module is NOT installed in $modulePath"
+        Write-Verbose "$(_gis ($Indentation + 1))[-] Current PowerShell Module Status: NOT INSTALLED"
+        _upb -Status "Check PowerShell Module Status" -CurrentOperation "Component Missing!" -PercentageChange 20
         Update-TestResult -Failure
 
         if (-not $NoOutput) {
@@ -414,22 +412,22 @@ if ($TestModule) {
     }
 }
 else {
-    Write-Verbose "$(Get-IndentString ($Indentation + 1))[/] Skipping Current PowerShell Module Status Check"
-    Update-ProgressBar -Status "Check PowerShell Module Status" -CurrentOperation "Component Test Skipped" -PercentageChange 20
+    Write-Verbose "$(_gis ($Indentation + 1))[/] Skipping Current PowerShell Module Status Check"
+    _upb -Status "Check PowerShell Module Status" -CurrentOperation "Component Test Skipped" -PercentageChange 20
 }
 
 
 # Check for the presence of Link2Root in the User's PATH
-Update-ProgressBar -Status "Check PATH Status" -CurrentOperation "Checking Status..." -PercentageChange 0
+_upb -Status "Check PATH Status" -CurrentOperation "Checking Status..." -PercentageChange 0
 
 if ($TestPATH) {
     [string]$username = Get-FullyQualifiedUsername
 
-    Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Checking Current PATH..."
+    Write-Verbose "$(_gis ($Indentation + 1))[>] Checking Current PATH..."
     
     if (Test-UserPATH $installLocation -Indentation ($Indentation + 2) -Verbose:$VerbosePreference) {
-        Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] Current PATH Status: FOUND"
-        Update-ProgressBar -Status "Check PATH Status" -CurrentOperation "Component Installed!"
+        Write-Verbose "$(_gis ($Indentation + 1))[+] Current PATH Status: FOUND"
+        _upb -Status "Check PATH Status" -CurrentOperation "Component Installed!"
         Update-TestResult -Success
         
         if (-not $NoOutput) {
@@ -441,9 +439,9 @@ if ($TestPATH) {
         }
     }
     else {
-        Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] Entry $installLocation NOT found in $username's PATH"
-        Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Current PATH Status: NOT FOUND"
-        Update-ProgressBar -Status "Check Install Status" -CurrentOperation "Component Missing!"
+        Write-Verbose "$(_gis ($Indentation + 2))[-] Entry $installLocation NOT found in $username's PATH"
+        Write-Verbose "$(_gis ($Indentation + 1))[-] Current PATH Status: NOT FOUND"
+        _upb -Status "Check Install Status" -CurrentOperation "Component Missing!"
         Update-TestResult -Failure
         
         if (-not $NoOutput) {
@@ -456,16 +454,16 @@ if ($TestPATH) {
     }
 }
 else {
-    Write-Verbose "$(Get-IndentString ($Indentation + 1))[/] Skipping Current PATH Check"
-    Update-ProgressBar -Status "Check PATH Status" -CurrentOperation "Component Test Skipped"
+    Write-Verbose "$(_gis ($Indentation + 1))[/] Skipping Current PATH Check"
+    _upb -Status "Check PATH Status" -CurrentOperation "Component Test Skipped"
 }
 
 
 # Cleanup and print and/or return the results
 Remove-ProgressBar
 
-if ($result) { Write-Verbose "$(Get-IndentString $Indentation)[+] Link2Root IS considered to be installed" }
-else         { Write-Verbose "$(Get-IndentString $Indentation)[-] Link2Root is NOT considered to be installed" }
+if ($result) { Write-Verbose "$(_gis $Indentation)[+] Link2Root IS considered to be installed" }
+else         { Write-Verbose "$(_gis $Indentation)[-] Link2Root is NOT considered to be installed" }
 
 if (-not $NoOutput) {
     _wc "Link2Root" -NoNewline

@@ -84,19 +84,19 @@ if (-not $GetModulePath) {
 }
 # Retrieve PowerShell Module Path
 else {
-    Write-Verbose "$(Get-IndentString $Indentation)[>] Determining Link2Root PowerShell Module Path..."
+    Write-Verbose "$(_gis $Indentation)[>] Determining Link2Root PowerShell Module Path..."
 
     # Search for the first user-specific module location
     foreach ($path in ($env:PSModulePath -split ";")) {
         if ($path -ilike "*\Documents\PowerShell*" -or $path -ilike "*\Documents\WindowsPowerShell*") {
-            Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] Checked Candidate Module Path: $path"
-            Write-Verbose "$(Get-IndentString $Indentation)[+] Found Eligible PowerShell Module Path: $path"
+            Write-Verbose "$(_gis ($Indentation + 1))[+] Checked Candidate Module Path: $path"
+            Write-Verbose "$(_gis $Indentation)[+] Found Eligible PowerShell Module Path: $path"
             return (Join-Path $path $MODULE_NAME)
         }
         else {
-            Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Checked Candidate Module Path: $path"
+            Write-Verbose "$(_gis ($Indentation + 1))[-] Checked Candidate Module Path: $path"
         }
     }
 
-    Write-Verbose "$(Get-IndentString $Indentation)[-] No Eligible PowerShell Module Path Found!"
+    Write-Verbose "$(_gis $Indentation)[-] No Eligible PowerShell Module Path Found!"
 }

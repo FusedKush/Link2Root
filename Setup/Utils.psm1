@@ -1,4 +1,4 @@
-# Shared Constants #
+# Miscellaneous Constants #
 
 <#
     A hashtable containing the parameters to be passed
@@ -13,6 +13,10 @@
     Confirm = $false
 }
 
+<#
+    An array of wildcard patterns specifying which files are to
+    be ignored and skipped entirely during the setup process.
+#>
 [string[]]$SETUP_FOLDER_IGNORED_FILES = @("*[/\]Install-Link2Root.ps1")
 
 
@@ -143,7 +147,7 @@ function Resolve-UserPATH {
             by a semicolon (;), or as an array of strings containing
             the individual path elements.
         #>
-        [Parameter(Mandatory, Position = 1, ValueFromPipeline)]
+        [Parameter(Mandatory, Position = 0, ValueFromPipeline)]
         [string[]]$PATH,
 
         <#
@@ -222,7 +226,7 @@ function Resolve-UserPATH {
 #>
 function Set-UserPATH {
 
-    [CmdletBinding()]
+    [CmdletBinding(PositionalBinding = $false)]
     param(
         <#
             The current user's new PATH, either as a string containing
@@ -230,7 +234,7 @@ function Set-UserPATH {
             by a semicolon (;), or as an array of strings containing
             the individual path elements.
         #>
-        [Parameter(Mandatory, Position = 1, ValueFromPipeline)]
+        [Parameter(Mandatory, Position = 0, ValueFromPipeline)]
         [string[]]$PATH,
 
         <#
@@ -256,21 +260,23 @@ function Set-UserPATH {
         # and individual pipeline contents.
         [string[]]$fullPATH = $PATH
     }
+
     process {
         if ($null -ne $_) {
             $fullPATH += @($_)
         }
     }
+
     end {
+        Write-Verbose "$(_gis $Indentation)[>] Updating $(Get-FullyQualifiedUsername)'s PATH..."
+        Write-Verbose "$(_gis ($Indentation + 1))[#] Original PATH: $(Get-UserPATH -AsString)"
+        
         [string]$resolvedPATH = (Resolve-UserPATH $fullPATH -ToString)
-    
-        Write-Verbose "$(Get-IndentString $Indentation)[>] Updating $(Get-FullyQualifiedUsername)'s PATH..."
-        Write-Verbose "$(Get-IndentString ($Indentation + 1))[#] Original PATH: $(Get-UserPATH -AsString)"
-        Write-Verbose "$(Get-IndentString ($Indentation + 1))[#] Modified Value: $resolvedPATH"
+        Write-Verbose "$(_gis ($Indentation + 1))[#] Modified Value: $resolvedPATH"
 
         [System.Environment]::SetEnvironmentVariable("PATH", $resolvedPATH, "USER")
-        Write-Verbose "$(Get-IndentString ($Indentation + 1))[#] Updated PATH: $(Get-UserPATH -AsString)"
-        Write-Verbose "$(Get-IndentString $Indentation)[+] Updated $(Get-FullyQualifiedUsername)'s PATH"
+        Write-Verbose "$(_gis ($Indentation + 1))[#] Updated PATH: $(Get-UserPATH -AsString)"
+        Write-Verbose "$(_gis $Indentation)[+] Updated $(Get-FullyQualifiedUsername)'s PATH"
 
         if ($PassThru) {
             return ((Get-UserPATH -Raw) -ieq $resolvedPATH)
@@ -316,9 +322,12 @@ function Set-UserPATH {
 #>
 function Test-UserPATH {
 
-    [CmdletBinding()]
+    [CmdletBinding(PositionalBinding = $false)]
     param(
-        [Parameter(Position = 1, ValueFromPipeline)]
+        <#
+            The entry to search for within the PATH.
+        #>
+        [Parameter(Position = 0, ValueFromPipeline)]
         [PSDefaultValue(Help = "The Link2Root Installation Directory")]
         [string]$Entry = (& "$PSScriptRoot\Get-Link2RootInstall.ps1" -Internal),
 
@@ -328,10 +337,22 @@ function Test-UserPATH {
             by a semicolon (;), or as an array of strings containing
             the individual path elements.
         #>
-        [Parameter(Position = 2)]
+        [Parameter(Position = 1)]
         [PSDefaultValue(Help = "The Current User's PATH")]
         [string[]]$PATH = (Get-UserPATH),
 
+        <#
+            Indicates that no progress bars should be rendered
+            in the terminal by the script.
+
+            By default and when this switch is omitted, the status and progress
+            of the function is reflected in one or more progress bars
+            rendered within the terminal.
+
+            Has no effect on progress bars created by built-in functions and cmdlets.
+            To control the behavior of all PowerShell progress bars, use the
+            `$ProgressPreference` automatic variable.
+        #>
         [Alias("HideProgress")]
         [switch]$NoProgress,
 
@@ -352,17 +373,17 @@ function Test-UserPATH {
             -Hidden:$NoProgress
 
         foreach ($currentPath in $pathArray) {
-            Update-ProgressBar -Status $currentPath -CurrentOperation "Checking for Match..." -PercentageChange 0
+            _upb -Status $currentPath -CurrentOperation "Checking for Match..." -PercentageChange 0
 
             if ($currentPath -ieq $Entry) {
-                Write-Verbose "$(Get-IndentString $Indentation)[+] $currentPath"
-                Update-ProgressBar -Status $currentPath -CurrentOperation "Match FOUND" -PercentageChange 100
+                Write-Verbose "$(_gis $Indentation)[+] $currentPath"
+                _upb -Status $currentPath -CurrentOperation "Match FOUND" -PercentageChange 100
                 Remove-ProgressBar
                 return $true
             }
             else {
-                Write-Verbose "$(Get-IndentString $Indentation)[-] $currentPath"
-                Update-ProgressBar -Status $currentPath -CurrentOperation "Match NOT Found"
+                Write-Verbose "$(_gis $Indentation)[-] $currentPath"
+                _upb -Status $currentPath -CurrentOperation "Match NOT Found"
             }
         }
 
@@ -410,21 +431,21 @@ function Test-UserPATH {
 #>
 function Assert-InstallIntegrity {
 
-    [CmdletBinding()]
+    [CmdletBinding(PositionalBinding = $false)]
     [OutputType([bool])]
     param(
         <#
             The path to the directory containing the expected files to be
             compared against the designated installation directory.
         #>
-        [Parameter(Mandatory, Position = 1)]
+        [Parameter(Mandatory, Position = 0)]
         [string]$Source,
 
         <#
             The path to the installation directory
             whose integrity is being verified.
         #>
-        [Parameter(Mandatory, Position = 2, ValueFromPipeline)]
+        [Parameter(Mandatory, Position = 1, ValueFromPipeline)]
         [string]$Install,
 
         <#
@@ -465,7 +486,7 @@ function Assert-InstallIntegrity {
     )
 
     if (-not (Test-InstallIntegrity @PSBoundParameters)) {
-        throw "File Verification Failed"
+        throw "File Verification Failed for $Install"
     }
 
 }
@@ -534,7 +555,7 @@ function Assert-InstallIntegrity {
 #>
 function Get-FileHashRecursive {
 
-    [CmdletBinding()]
+    [CmdletBinding(PositionalBinding = $false)]
     param(
         <#
             The path or paths whose hash is to be computed.
@@ -543,7 +564,7 @@ function Get-FileHashRecursive {
             to compute a single hash for the combination of
             files and directories.
         #>
-        [Parameter(Mandatory, Position = 1, ValueFromPipeline)]
+        [Parameter(Mandatory, Position = 0, ValueFromPipeline)]
         [SupportsWildcards()]
         [string[]]$Path,
 
@@ -601,7 +622,7 @@ function Get-FileHashRecursive {
 
         <#
             An internal parameter used to flag recursive calls
-            to properly handle filtering and output behavior.
+            in order to properly handle filtering and output behavior.
         #>
         [Parameter(DontShow)]
         [switch]$RecursiveCall
@@ -630,7 +651,7 @@ function Get-FileHashRecursive {
                 $resolvedPaths += Get-Item -Path $currentPath -Filter $Filter -ErrorAction Stop
             }
             catch {
-                Write-Verbose "$(Get-IndentString $Indentation)[-] No Files Matched Pattern: $currentPath"
+                Write-Verbose "$(_gis $Indentation)[-] No Files Matched Pattern: $currentPath"
             }
         }
 
@@ -648,12 +669,11 @@ function Get-FileHashRecursive {
                             else                { return $resolvedPath }
                         }
 
-                        Write-Verbose "$(Get-IndentString $Indentation)[>] Computing Hash for Directory: $displayPath..."
-                        Update-ProgressBar `
+                        Write-Verbose "$(_gis $Indentation)[>] Computing Hash for Directory: $displayPath..."
+                        _upb `
                             -Status (Split-Path $resolvedPath -Leaf) `
                             -CurrentOperation "Computing Directory Hash..." `
                             -PercentageChange 0
-        
                         [string]$directoryHash = Get-FileHashRecursive `
                             -Path "$resolvedPath/*" `
                             -Algorithm $Algorithm `
@@ -663,23 +683,23 @@ function Get-FileHashRecursive {
                             -Indentation ($Indentation + 1) `
                             -RecursiveCall
         
-                        Write-Verbose "$(Get-IndentString $Indentation)[+] Computed Hash '$directoryhash' for Directory: $displayPath"
-                        Update-ProgressBar `
+                        Write-Verbose "$(_gis $Indentation)[+] Computed Hash '$directoryhash' for Directory: $displayPath"
+                        _upb `
                             -Status (Split-Path $resolvedPath -Leaf) `
                             -CurrentOperation "Got Directory Hash: $directoryHash"
                         $childHashes.Add($directoryHash) | Out-Null
                     }
                     else {
-                        Update-ProgressBar `
+                        _upb `
                             -Status (Split-Path $resolvedPath -Leaf) `
                             -CurrentOperation "Computing File Hash..." `
                             -PercentageChange 0
                         [string]$fileHash = (Get-FileHash -Path $resolvedPath -Algorithm $Algorithm).Hash
         
-                        Update-ProgressBar `
+                        Write-Verbose "$(_gis $Indentation)[#] Computed Hash '$filehash' for File: $(Split-Path $resolvedPath -Leaf)"
+                        _upb `
                             -Status (Split-Path $resolvedPath -Leaf) `
                             -CurrentOperation "Got File Hash: $fileHash"
-                        Write-Verbose "$(Get-IndentString $Indentation)[#] Computed Hash '$filehash' for File: $(Split-Path $resolvedPath -Leaf)"
                         $childHashes.Add($fileHash) | Out-Null
                     }
                 }
@@ -688,21 +708,20 @@ function Get-FileHashRecursive {
             Remove-ProgressBar
         }
 
-        $fileHash = & {
-            if ($childHashes.Count -eq 1) {
-                return $childHashes[0]
-            }
-            
+        if ($childHashes.Count -eq 1) {
+            return $childHashes[0]
+        }
+        else {
             foreach ($hash in $childHashes) {
                 $joinedHashesWriter.Write($hash)
             }
-
+    
             $joinedHashesWriter.Flush()
             $joinedHashes.Position = 0
-
+    
             return (Get-FileHash -InputStream $joinedHashes -Algorithm $Algorithm).Hash
         }
-        return $fileHash
+        
     }
 
 }
@@ -743,21 +762,21 @@ function Get-FileHashRecursive {
 #>
 function Test-InstallIntegrity {
 
-    [CmdletBinding()]
+    [CmdletBinding(PositionalBinding = $false)]
     [OutputType([bool])]
     param(
         <#
             The path to the directory containing the expected files to be
             compared against the designated installation directory.
         #>
-        [Parameter(Mandatory, Position = 1)]
+        [Parameter(Mandatory, Position = 0)]
         [string]$Source,
 
         <#
             The path to the installation directory
             whose integrity is being verified.
         #>
-        [Parameter(Mandatory, Position = 2, ValueFromPipeline)]
+        [Parameter(Mandatory, Position = 1, ValueFromPipeline)]
         [string]$Install,
 
         <#
@@ -797,7 +816,6 @@ function Test-InstallIntegrity {
         [int]$Indentation = 0
     )
 
-
     [hashtable]$commonArgs = @{
         Filter = $Filter
         Include = $Include
@@ -805,29 +823,29 @@ function Test-InstallIntegrity {
         Indentation = ($Indentation + 2)
     }
     [string]$resolvedInstallPath = Resolve-Path $Install
+    [string]$resultIcon = ""
+    [string]$resultVerb = ""
+    [bool]$result = $false
 
-    Write-Verbose "$(Get-IndentString $Indentation)[>] Verifying Installation Integrity for: $resolvedInstallPath"
+
+    Write-Verbose "$(_gis $Indentation)[>] Verifying Installation Integrity for: $resolvedInstallPath"
     Add-ProgressBar `
         -Name "Check File Integrity" `
         -DefaultPercentageChange 50 `
         -InitialSecondsRemaining 1
     
-    Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Computing Expected Install Hash..."
-    Update-ProgressBar -Status "Get Expected Install Hash" -PercentageChange 0
-    
+    Write-Verbose "$(_gis ($Indentation + 1))[>] Computing Expected Install Hash..."
+    _upb -Status "Get Expected Install Hash" -PercentageChange 0
     [string]$sourceHash = Get-FileHashRecursive -Path $Source @commonArgs
-    Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] Source Hash: $sourceHash"
-    Update-ProgressBar -Status "Got Expected Install Hash: $sourceHash"
+    Write-Verbose "$(_gis ($Indentation + 1))[+] Source Hash: $sourceHash"
+    _upb -Status "Got Expected Install Hash: $sourceHash"
 
-    Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Computing Actual Install Hash..."
-    Update-ProgressBar -Status "Get Actual Install Hash" -PercentageChange 0
-    
+    Write-Verbose "$(_gis ($Indentation + 1))[>] Computing Actual Install Hash..."
+    _upb -Status "Get Actual Install Hash" -PercentageChange 0
     [string]$installHash = Get-FileHashRecursive -Path $Install @commonArgs
-    Update-ProgressBar -Status "Got Actual Install Hash: $sourceHash"
+    _upb -Status "Got Actual Install Hash: $sourceHash"
     
-    [bool]$result = $sourceHash -eq $installHash
-    [string]$resultIcon = ""
-    [string]$resultVerb = ""
+    $result = $sourceHash -eq $installHash
 
     if ($result) {
         $resultIcon = "+"
@@ -838,15 +856,15 @@ function Test-InstallIntegrity {
         $resultVerb = "FAILED"
     }
 
-    Write-Verbose "$(Get-IndentString ($Indentation + 1))[$resultIcon] Install Hash: $installHash"
-    Write-Verbose "$(Get-IndentString $Indentation)[$resultIcon] Installation Integrity Verification Check $resultVerb for: $resolvedInstallPath"
+    Write-Verbose "$(_gis ($Indentation + 1))[$resultIcon] Install Hash: $installHash"
+    Write-Verbose "$(_gis $Indentation)[$resultIcon] Installation Integrity Verification Check $resultVerb for: $resolvedInstallPath"
     Remove-ProgressBar
     return $result
 
 }
 
 
-# Output Logging #
+# Output Logging & Formatting #
 
 <#
     .SYNOPSIS
@@ -865,18 +883,24 @@ function Test-InstallIntegrity {
     String.
     `Get-IndentString` returns an indentation string
     based on the specified indentation level.
+
+    .LINK
+    Format-Indentation
 #>
 function Get-IndentString {
 
+    [Alias("_gis")]
     param(
         <#
             The indentation level to use when determining how
             much to indent the line.
 
+            Each indentation level corresponds to 2 spaces of indentation.
+
             Defaults to 1. If a value less than 1 is specified,
             an empty string will be returned.
         #>
-        [Parameter(Position = 1)]
+        [Parameter(Position = 0)]
         [int]$Indentation = 1
     )
 
@@ -884,30 +908,74 @@ function Get-IndentString {
 
 }
 
+<#
+    .SYNOPSIS
+    Format the indentation of a string
+
+    .DESCRIPTION
+    Format and set the indentation level for all lines
+    of the specified string.
+
+    The indentation for all lines of the specified string will be
+    adjusted to match the designated indentation level. Lines will less
+    indentation than specified will be padded to the designated amount,
+    while those with more indentation than specified will be reduced to
+    reach the designated base indentation level.
+
+    .NOTES
+    Only the *base* indentation level of the specified string will be modified.
+    In other words, if the specified string already contains any indentation,
+    this function will only modify the *base* indentation level, and all
+    remaining indentation is generally left unchanged.
+
+    To set the indentation level of *all* lines to the same value,
+    you can manually pipe each line of the string to `Format-Indentation`
+    (e.g., ($myString -split "`n" | Format-Indentation) -join "`n").
+
+    .INPUTS
+    String.
+    You can pipe a string to be formatted to `Format-Indentation`.
+
+    .OUTPUTS
+    String.
+    `Format-Indentation` returns a copy of the specified string formatted
+    to the designated indentation level.
+
+    .LINK
+    Get-IndentString
+#>
 function Format-Indentation {
 
     param(
-        [Parameter(Mandatory, Position = 1, ValueFromPipeline)]
+        <#
+            The string to be formatted.
+        #>
+        [Parameter(Mandatory, Position = 0, ValueFromPipeline)]
         [string]$String,
 
         <#
             The indentation level to use when determining how
-            much to indent the line.
+            much to indent each line of the string.
+
+            Each indentation level corresponds to 2 spaces of indentation.
 
             Defaults to 1. If a value less than 1 is specified,
-            an empty string will be returned.
+            the returned string will have no base indentation.
         #>
-        [Parameter(Mandatory, Position = 2)]
+        [Parameter(Mandatory, Position = 1)]
         [int]$Indentation
     )
 
-    [int]$baseIndentation = (
-        [regex]::Matches($String, "(^|\n+)( *)") |
-            ForEach-Object { $_.Groups[2] } |
-                Measure-Object -Property Length -Minimum
-    ).Minimum
+    process {
+        [int]$baseIndentation = (
+            [regex]::Matches($String, "(^|\n+)( *)") |
+                ForEach-Object { $_.Groups[2] } |
+                    Measure-Object -Property Length -Minimum
+        ).Minimum
+    
+        return $String -replace "(^|\n+)( {0,$baseIndentation})","`$1$(Get-IndentString $Indentation)"
+    }
 
-    return $String -replace "(^|\n+)( {0,$baseIndentation})","`$1$(Get-IndentString $Indentation)"
 
 }
 
@@ -1014,12 +1082,11 @@ function Write-ComponentPrefix {
 function Write-Component {
 
     [Alias("_wc")]
-    [CmdletBinding()]
     param(
         <#
             The Component Update to write to the console.
         #>
-        [Parameter(Mandatory, Position = 1, ValueFromPipeline)]
+        [Parameter(Mandatory, Position = 0, ValueFromPipeline)]
         [string]$Component,
 
         <#
@@ -1085,7 +1152,6 @@ function Write-EndRestartNotice {
 function Write-Path {
 
     [Alias("_wp")]
-    [CmdletBinding()]
     param(
         <#
             The path to the written to the console.
@@ -1110,82 +1176,354 @@ function Write-Path {
 }
 
 
-# Progress Bar #
+# Progress Bars #
 
-class ProgressBar {
+<#
+    An internal class representing a Progress Bar
+    rendered in the terminal during the Link2Root Setup.
+#>
+class Link2RootProgressBar {
 
-    [string]$Name
-    [int]$CurrentPercentage = 0
-    [int]$DefaultPercentageChange = 1
-    [int]$InitialSecondsRemaining = 1
+    <#
+        The name of the Progress Bar, which is used for
+        the `-Action` parameter when calling `Write-Progress`.
+    #>
+    [Alias("Action")]
+    [ValidateNotNullOrEmpty()]
+    [string]$Name = "Running Operation"
+
+    <#
+        The current percentage of the Progress Bar,
+        stored as a floating-point number between 0 and 100.
+    #>
+    [ValidateRange(0, 100)]
+    [float]$CurrentPercentage = 0
+
+    <#
+        The default amount of progress that the Progress Bar
+        will make every time that `Update-ProgressBar` is called
+        unless a specified `-PercentageChange` is specified,
+        stored as a floating-point number between 0 and 100.
+    #>
+    [ValidateRange(0, 100)]
+    [float]$DefaultPercentageChange = 1
+
+    <#
+        A positive, nonzero floating-point number representing the initial amount
+        of time remaining for the action visualized by the
+        Progress Bar in seconds.
+    #>
+    [ValidateRange(0, 999)]
+    [float]$InitialSecondsRemaining = 1
+
+    <#
+        Indicates that the Progress Bar is to be hidden and not
+        rendered in the terminal.
+
+        This value is used by functions and cmdlets to selectively render
+        Progress Bars based on the presence or absence of a switch
+        passed to the functon or cmdlet.
+    #>
     [bool]$Hidden = $false
+
+    <#
+        Indicates if any calls have been made to `Update-ProgressBar`
+        with this Progress Bar active since its creation.
+
+        This value is used to delay updating the Progress Bar until
+        after the first update made to it used to display it for the first time.
+    #>
     [bool]$FirstUpdate = $false
     
 }
 
+<#
+    Indicates if any Setup Progress Bars can currently be
+    rendered in the terminal or not.
+    
+    Managed by the `Enable-ProgressBars` and `Disable-ProgressBars` functions.
+#>
 [bool]$progressBarsEnabled = $true
-[System.Collections.Generic.Stack[ProgressBar]]$activeProgressBars = [System.Collections.Generic.Stack[ProgressBar]]::new()
+<#
+    A stack of `Link2RootProgressBar`s used to manage
+    all of the Active Setup Progress Bars.
+#>
+[System.Collections.Generic.Stack[Link2RootProgressBar]]$activeProgressBars = [System.Collections.Generic.Stack[Link2RootProgressBar]]::new()
 
+<#
+    .SYNOPSIS
+    Add a new Setup Progress Bar.
+
+    .DESCRIPTION
+    Add a new Progress Bar used to visualize the
+    current status and progress of setting up Link2Root.
+
+    Progress Bars are nested, such that Progress Bars created
+    by later calls to `Add-ProgressBar` are nested under those
+    created by the earlier function calls.
+
+    Once created, the Progress Bar can be updated as long as it
+    is the Active Setup Progress Bar using `Update-ProgressBar`.
+
+    Every call to `Add-ProgressBar` should be matched with a
+    call to `Remove-ProgressBar` later in the code.
+
+    If a specified Setup Progress Bar is or is not to be rendered in the terminal,
+    it can be specified during its creation using the `-Hidden` or `-Disabled` switch.
+
+    .INPUTS
+    None.
+    You cannot pipe any objects to `Add-ProgressBar`.
+
+    .OUTPUTS
+    None.
+    `Add-ProgressBar` does not generate any output.
+
+    .LINK
+    Update-ProgressBar
+
+    .LINK
+    Remove-ProgressBar
+
+    .LINK
+    Enable-ProgressBar
+
+    .LINK
+    Disable-ProgressBar
+#>
 function Add-ProgressBar {
 
     param(
+        <#
+            The name of the Progress Bar, which is used for
+            the `-Action` parameter when calling `Write-Progress`.
+        #>
+        [Alias("Action")]
+        [ValidateNotNullOrEmpty()]
         [string]$Name,
-        [int]$DefaultPercentageChange,
-        [int]$InitialSecondsRemaining,
 
+        <#
+            The default amount of progress that the Progress Bar
+            will make every time that `Update-ProgressBar` is called
+            unless a specified `-PercentageChange` is specified,
+            stored as a floating-point number between 0 and 100.
+
+            To prevent the Progress Bar from making any progress
+            unless explicitly specified, specify a value of 0 for this parameter.
+        #>
+        [ValidateRange(0, 100)]
+        [float]$DefaultPercentageChange = 1,
+
+        <#
+            A positive, nonzero floating-point number representing the initial amount
+            of time remaining for the action visualized by the
+            Progress Bar in seconds.
+        #>
+        [ValidateRange(0, 999)]
+        [float]$InitialSecondsRemaining = 1,
+
+        <#
+            Indicates that the Progress Bar is to be hidden and not
+            rendered in the terminal.
+
+            This switch can be used by functions and cmdlets to selectively render
+            Progress Bars based on the presence or absence of a switch
+            passed to the functon or cmdlet.
+        #>
         [Alias("Disabled")]
         [switch]$Hidden
     )
 
-    $script:activeProgressBars.Push((New-Object ProgressBar -Property $PSBoundParameters))
-    # Update-ProgressBar `
-    #     -Status "Starting Operation" `
-    #     -PercentageChange 0
+    $script:activeProgressBars.Push((New-Object Link2RootProgressBar -Property $PSBoundParameters))
 
 }
 
-function Disable-ProgressBars {
-    $script:progressBarsEnabled = $false
-}
+<#
+    .SYNOPSIS
+    Set the Global Visibility of Setup Progress Bars.
 
-function Enable-ProgressBars {
-    $script:progressBarsEnabled = $true
-}
+    .DESCRIPTION
+    Globally Show or Hide Progress Bars used to visualize
+    progress during the Link2Root Setup.
 
-# function Hide-ProgressBar {
+    After calling this function, all subsequent calls to `Update-ProgressBar`
+    will not cause any Progress Bars to appear or be updated until the
+    `Enable-ProgressBars` function has been called.
 
-# }
+    This function has no effect on Setup Progress Bars that have been
+    selectively hidden using the `-Hidden` switch when calling `Add-ProgressBar`,
+    or on progress bars created by built-in functions and cmdlets. To control the
+    behavior of all PowerShell progress bars, use the `$ProgressPreference` automatic variable.
 
-# function Show-ProgressBar {
+    .INPUTS
+    None.
+    You cannot pipe any objects to `Hide-ProgressBar`.
 
-# }
+    .OUTPUTS
+    None.
+    `Hide-ProgressBar` does not generate any output.
 
-function Remove-ProgressBar {
+    .LINK
+    Add-ProgressBar
 
-    param()
+    .LINK
+    Update-ProgressBar
 
-    if ($script:activeProgressBars.Count -gt 0) {
-        Update-ProgressBar -PercentageChange 100 -Completed
-
-        $script:activeProgressBars.Pop() | Out-Null
-        # Write-Progress `
-        #     -Activity $pb.Name `
-        #     -CurrentOperation $CurrentOperation `
-        #     -Status $Status `
-        #     -PercentComplete 100 `
-        #     -SecondsRemaining 0 `
-        #     -Completed
-    }
-    
-
-}
-
-function Update-ProgressBar {
+    .LINK
+    Remove-ProgressBar
+#>
+function Hide-ProgressBars {
 
     param(
+        <#
+            Indicates whether or not Setup Progress Bars are to
+            be rendered in the terminal.
+        #>
+        [Alias("Disabled", "NoProgress", "HideProgress", "Silent")]
+        [Parameter(Mandatory, Position = 0)]
+        [bool]$Hidden
+    )
+
+    $script:progressBarsEnabled = (-not $Hidden)
+
+}
+
+<#
+    .SYNOPSIS
+    Remove the Active Setup Progress Bar.
+
+    .DESCRIPTION
+    Remove the Active Setup Progress Bar used to visualize the
+    current status and progress of setting up Link2Root.
+
+    Every call to `Remove-ProgressBar` should be preceeded with a
+    call to `Add-ProgressBar` prior in the code. If `Remove-ProgressBar`
+    is called when there are no Active Setup Progress Bars,
+    an exception will be thrown.
+
+    .INPUTS
+    None.
+    You cannot pipe any objects to `Remove-ProgressBar`.
+
+    .OUTPUTS
+    None.
+    `Remove-ProgressBar` does not generate any output.
+
+    .LINK
+    Add-ProgressBar
+    
+    .LINK
+    Update-ProgressBar
+
+    .LINK
+    Enable-ProgressBar
+
+    .LINK
+    Disable-ProgressBar
+#>
+function Remove-ProgressBar {
+
+    if ($script:activeProgressBars.Count -eq 0) {
+        throw "No Progress Bar is Currently Active to Remove!"
+    }
+    
+    Update-ProgressBar -PercentageChange 100 -Completed
+    $script:activeProgressBars.Pop() | Out-Null
+
+}
+
+<#
+    .SYNOPSIS
+    Update the Active Setup Progress Bar.
+
+    .DESCRIPTION
+    Update the Active Setup Progress Bar used to visualize the
+    current status and progress of setting up Link2Root.
+
+    The contents of the Progress Bar can be set using the
+    `-Action` and `-CurrentOperation` parameters. The previous contents
+    of the Progress Bar are NOT maintained between calls to `Update-ProgressBar`,
+    and each function call will overwrite the current contents of the Progress Bar.
+
+    The progress made on the Progress Bar and the corresponding change in the
+    Estimated Time Remaining can also be specified using the `-PercentageChange` parameter.
+    If omitted, the Default Percentage Change specified for the Progress Bar using the
+    `-DefaultPercentageChange` parameter of `Add-ProgressBar` will be used instead.
+    To prevent the progress of the Progress Bar from changing between calls to `Update-ProgressBar`,
+    pass `-PercentageChange 0` to the function or `-DefaultPercentageChange 0` to `Add-ProgressBar`.
+
+    The visibility of the Progress Bar is also updated by this function. If the `-Hidden`, `-Disabled`,
+    or `-Completed` switches are used, the Progress Bar will be hidden. If none of the switches are
+    specified, the Progress Bar will be displayed. However, if `$ProgressPreference` is set to "SilentlyContinue",
+    if the Progress Bar was created using the `-Hidden` or `-Disabled` option when calling `Add-ProgressBar`,
+    or if Setup Progress Bars have been Globally Disabled using `Disable-ProgressBars`, no progress bars will be
+    displayed or updated by this function, even if none of the above switches are specified.
+
+    Every call to `Update-ProgressBar` should be preceeded with a
+    call to `Add-ProgressBar` prior in the code. If `Update-ProgressBar`
+    is called when there are no Active Setup Progress Bars,
+    an exception will be thrown.
+
+    .INPUTS
+    String.
+    You cannot pipe any objects to `Update-ProgressBar`.
+
+    .OUTPUTS
+    None.
+    `Update-ProgressBar` does not generate any output.
+
+    .LINK
+    Add-ProgressBar
+    
+    .LINK
+    Remove-ProgressBar
+
+    .LINK
+    Enable-ProgressBar
+
+    .LINK
+    Disable-ProgressBar
+#>
+function Update-ProgressBar {
+
+    [Alias("_upb")]
+    param(
+        <#
+            The current state of the operation being visualized.
+
+            Rendered as the second line of text in the heading of the Progress Bar.
+            
+            Unlike the `-CurrentOperation`, the status is always rendered in the Progress Bar,
+            even when the Progress View is `Minimal`.
+        #>
         [string]$Status,
+
+        <#
+            The current operation taking place.
+
+            Rendered as the line of text rendered below the Progress Bar.
+            
+            Unlike the `-CurrentOperation`, the current operation will not be
+            rendered in the Progress Bar when the Progress View is `Minimal`.
+        #>
         [string]$CurrentOperation,
+
+        <#
+            The amount of progress that the Progress Bar will make
+            as a floating-point number between 0 and 100.
+
+            To prevent the Progress Bar from making any progress
+            during the current update, specify a value of 0 for this parameter.
+        #>
+        [ValidateRange(0, 100)]
         [Nullable[int]]$PercentageChange,
+
+        <#
+            Indicates that the Progress Bar is to be hidden and not
+            rendered in the terminal until a subsequent call to `Update-ProgressBar`
+            without the switch.
+        #>
+        [Alias("Disabled", "Hidden")]
         [switch]$Completed
     )
 
@@ -1204,12 +1542,12 @@ function Update-ProgressBar {
         }
     
         if ($pb.Value.FirstUpdate) {
-            $progressArgs["PercentComplete"] = ($pb.Value.CurrentPercentage += [Math]::Min($PercentageChange, (100 - $pb.Value.CurrentPercentage)))
-            $progressArgs["SecondsRemaining"] = ($pb.Value.InitialSecondsRemaining - (($pb.Value.CurrentPercentage / 100) * ($pb.Value.InitialSecondsRemaining - 1)))
+            $progressArgs["PercentComplete"] = [Math]::Round(($pb.Value.CurrentPercentage += [Math]::Min($PercentageChange, (100 - $pb.Value.CurrentPercentage))))
+            $progressArgs["SecondsRemaining"] = [Math]::Round($pb.Value.InitialSecondsRemaining - (($pb.Value.CurrentPercentage / 100) * ($pb.Value.InitialSecondsRemaining - 1)))
         }
         else {
             $progressArgs["PercentComplete"] = 0
-            $progressArgs["SecondsRemaining"] = $pb.Value.InitialSecondsRemaining
+            $progressArgs["SecondsRemaining"] = [Math]::Round($pb.Value.InitialSecondsRemaining)
             $pb.Value.FirstUpdate = $true
         }
     
@@ -1221,15 +1559,10 @@ function Update-ProgressBar {
         }
     
         Write-Progress @progressArgs
-
-        # if (-not $progressArgs["Completed"]) {
-        #     Start-Sleep -Milliseconds 250
-        # }
     }
     else {
-        throw "No Progress Bar is Currently Active!"
+        throw "No Progress Bar is Currently Active to Update!"
     }
-
 
 }
 
@@ -1270,9 +1603,6 @@ function Get-FullyQualifiedUsername {
     Test if a file path matches the specified `-Filter`,
     `-Include`, and `-Exclude` patterns.
 
-    Detailed information about the pattern matching process
-    can be retrieved by using the `-Verbose` switch.
-
     .INPUTS
     string.
     You can pipe a string containing the path to be tested to `Test-FilePattern`.
@@ -1284,12 +1614,12 @@ function Get-FullyQualifiedUsername {
 #>
 function Test-FilePattern {
 
-    [CmdletBinding()]
+    [CmdletBinding(PositionalBinding = $false)]
     param(
         <#
             The path or paths to be tested.
         #>
-        [Parameter(Mandatory, Position = 1, ValueFromPipeline)]
+        [Parameter(Mandatory, Position = 0, ValueFromPipeline)]
         [string]$Path,
 
         <#
@@ -1330,15 +1660,15 @@ function Test-FilePattern {
     )
 
     [string]$fileType = & {
-        if ((Test-Path $Path -PathType Container))  { return "Directory" }
-        else                                        { return "File" }
+        if ((Test-Path $Path -PathType Container)) { return "Directory" }
+        else                                       { return "File" }
     }
     [string]$fileName = Split-Path $Path -Leaf
 
     foreach ($Pattern in $Exclude) {
         if ($Path -ilike $Pattern -or $fileName -ilike $Pattern) {
-            Write-Verbose "$(Get-IndentString $Indentation)[/] Skipped ${fileType}: $Path"
-            Write-Verbose "$(Get-IndentString ($Indentation + 1))[#] Matched Exclusion Pattern: $Pattern"
+            Write-Verbose "$(_gis $Indentation)[/] Skipped ${fileType}: $Path"
+            Write-Verbose "$(_gis ($Indentation + 1))[#] Matched Exclusion Pattern: $Pattern"
             return $false
         }
     }
@@ -1346,18 +1676,14 @@ function Test-FilePattern {
     if ($Include.Count -gt 0) {
         foreach ($pattern in $Include) {
             if ($Path -ilike $pattern -or $fileName -ilike $pattern) {
-                # Write-Verbose "$(Get-IndentString $Indentation)[/] Included ${fileType}: $Path"
-                # Write-Verbose "$(Get-IndentString ($Indentation + 1))[#] Matched Inclusion Pattern: $pattern"
                 return $true
             }
         }
         
-        Write-Verbose "$('  ' * $Indentation)[/] Skipped ${fileType}: $Path"
-        Write-Verbose "$('  ' * $Indentation)  [~] ${fileType}: $Path"
-        Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] No Match for Inclusion Patterns:"
+        Write-Verbose "$(_gis ($Indentation + 1))[>] No Match for Inclusion Patterns:"
 
         foreach ($pattern in $Include) {
-            Write-Verbose "$(Get-IndentString ($Indentation + 2))[#] $pattern"
+            Write-Verbose "$(_gis ($Indentation + 2))[#] $pattern"
         }
 
         return $false
@@ -1368,4 +1694,9 @@ function Test-FilePattern {
 }
 
 
-Export-ModuleMember -Function * -Variable NO_RISK_PARAMS, SETUP_FOLDER_IGNORED_FILES -Alias *
+# Exports #
+
+Export-ModuleMember `
+    -Alias * `
+    -Function * `
+    -Variable NO_RISK_PARAMS, SETUP_FOLDER_IGNORED_FILES

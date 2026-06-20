@@ -129,9 +129,6 @@ if ($Silent) {
     $NoProgress = $true
 }
 
-if (-not $NoProgress)   { Enable-ProgressBars }
-else                    { Disable-ProgressBars }
-
 try {
     [hashtable]$installTestArgs = @{
         NoOutput = $true
@@ -144,17 +141,18 @@ try {
         Indentation = ($Indentation + 2)
     }
 
-    Write-Verbose "$(Get-IndentString $Indentation)[>] Running Link2Root Uninstaller..."
+    Write-Verbose "$(_gis $Indentation)[>] Running Link2Root Uninstaller..."
+    Hide-ProgressBars $NoProgress
     Add-ProgressBar -Name "Uninstalling Link2Root" -DefaultPercentageChange 25 -InitialSecondsRemaining 3
-    Update-ProgressBar -Status "Check Current Installation Status"
+    _upb -Status "Check Current Installation Status"
 
-    Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Checking for Uninstallation Eligibility..."
+    Write-Verbose "$(_gis ($Indentation + 1))[>] Checking for Uninstallation Eligibility..."
 
     if (-not $Install) {
         if (-not (& "$PSScriptRoot\Test-Link2RootInstall.ps1" @installTestArgs)) {
-            Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Ineligible for Uninstallation"
-            Write-Verbose "$(Get-IndentString $Indentation)[-] Link2Root Uninstallation Aborted."
-            Update-ProgressBar -Status "No Uninstallation Required" -PercentageChange 100
+            Write-Verbose "$(_gis ($Indentation + 1))[-] Ineligible for Uninstallation"
+            Write-Verbose "$(_gis $Indentation)[-] Link2Root Uninstallation Aborted."
+            _upb -Status "No Uninstallation Required" -PercentageChange 100
             
             if (-not $NoOutput) {
                 _wc "Link2Root" -NoNewline
@@ -167,49 +165,49 @@ try {
         }
     }
     else {
-        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Internal Invocation"
+        Write-Verbose "$(_gis ($Indentation + 2))[+] Internal Invocation"
     }
 
-    Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] Eligible for Uninstallation"
-    Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Requesting User Confirmation to Proceed with Uninstallation..."
+    Write-Verbose "$(_gis ($Indentation + 1))[+] Eligible for Uninstallation"
+    Write-Verbose "$(_gis ($Indentation + 1))[>] Requesting User Confirmation to Proceed with Uninstallation..."
     
     if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root for $(Get-FullyQualifiedUsername)", "Confirm", [ref]$yesToAll, [ref]$noToAll)) {
-        if (-not $Force)    { Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] User Approved Confirmation." }
-        else                { Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] Confirmation Automatically Approved via -Force Flag." }
+        if (-not $Force)    { Write-Verbose "$(_gis ($Indentation + 1))[+] User Approved Confirmation." }
+        else                { Write-Verbose "$(_gis ($Indentation + 1))[+] Confirmation Automatically Approved via -Force Flag." }
 
         [string]$installLocation = & "$PSScriptRoot\Get-Link2RootInstall.ps1" -Internal:$Install
 
         
         # Uninstall the script in the current user's local appdata folder
-        Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Removing Installation Files..."
-        Update-ProgressBar -Status "Remove Install Files" -CurrentOperation "Check Uninstall Status" -PercentageChange 0
+        Write-Verbose "$(_gis ($Indentation + 1))[>] Removing Installation Files..."
+        _upb -Status "Remove Install Files" -CurrentOperation "Check Uninstall Status" -PercentageChange 0
         
         if (-not $KeepInstall) {
             if (Test-Path $installLocation) {
-                Write-Verbose "$(Get-IndentString ($Indentation + 2))[>] Requesting User Confirmation to Proceed with Uninstallation of Install Files..."
+                Write-Verbose "$(_gis ($Indentation + 2))[>] Requesting User Confirmation to Proceed with Uninstallation of Install Files..."
 
                 if ($yesToAll -or $PSCmdlet.ShouldProcess(
-                    "$(Get-IndentString ($Indentation + 3))[+] Confirmation APPROVED",
+                    "$(_gis ($Indentation + 3))[+] Confirmation APPROVED",
                     "Uninstall Link2Root from $installLocation",
                     "Confirm`nAre you sure you want to perform this action?"
                 )) {
                     if ($yesToAll) {
-                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Confirmation Automatically Approved via Previous `"Yes to All`" Response"
+                        Write-Verbose "$(_gis ($Indentation + 2))[+] Confirmation Automatically Approved via Previous `"Yes to All`" Response"
                     }
                     elseif ($ConfirmPreference -in @("None", "High")) {
-                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Confirmation Automatically Approved due to Current ConfirmPreference Level ($ConfirmPreference)"
+                        Write-Verbose "$(_gis ($Indentation + 2))[+] Confirmation Automatically Approved due to Current ConfirmPreference Level ($ConfirmPreference)"
                     }
                     else {
-                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] User Approved Confirmation."
+                        Write-Verbose "$(_gis ($Indentation + 2))[+] User Approved Confirmation."
                     }
 
                     try {
-                        Update-ProgressBar -Status "Remove Install Files" -CurrentOperation "Remove Files" -PercentageChange 0
+                        _upb -Status "Remove Install Files" -CurrentOperation "Remove Files" -PercentageChange 0
                         Remove-Item -Path $installLocation -Recurse @NO_RISK_PARAMS
                         
-                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Removed Installation Files from Location: $installLocation"
-                        Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] Installation Files were Successfully Removed"
-                        Update-ProgressBar -Status "Remove Install Files" -CurrentOperation "Operation Completed Successfully"
+                        Write-Verbose "$(_gis ($Indentation + 2))[+] Removed Installation Files from Location: $installLocation"
+                        Write-Verbose "$(_gis ($Indentation + 1))[+] Installation Files were Successfully Removed"
+                        _upb -Status "Remove Install Files" -CurrentOperation "Operation Completed Successfully"
                         $success = $true
 
                         if (-not $NoOutput) {
@@ -221,9 +219,9 @@ try {
                         }
                     }
                     catch {
-                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] Failed to Remove Installation Files"
-                        Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Installation Files were NOT Removed"
-                        Update-ProgressBar -Status "Remove Install Files" -CurrentOperation "Operation Failed"
+                        Write-Verbose "$(_gis ($Indentation + 2))[-] Failed to Remove Installation Files"
+                        Write-Verbose "$(_gis ($Indentation + 1))[-] Installation Files were NOT Removed"
+                        _upb -Status "Remove Install Files" -CurrentOperation "Operation Failed"
                         $failed = $true
             
                         if (-not $NoOutput) {
@@ -238,10 +236,10 @@ try {
                     }
                 }
                 elseif (-not $WhatIfPreference) {
-                    Write-Verbose "$(Get-IndentString ($Indentation + 3))[-] Confirmation NOT Approved"
-                    Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] User Rejected Confirmation"
-                    Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Installation Files were NOT Modified"
-                    Update-ProgressBar -Status "Remove Install Files" -CurrentOperation "Operation Cancelled"
+                    Write-Verbose "$(_gis ($Indentation + 3))[-] Confirmation NOT Approved"
+                    Write-Verbose "$(_gis ($Indentation + 2))[-] User Rejected Confirmation"
+                    Write-Verbose "$(_gis ($Indentation + 1))[-] Installation Files were NOT Modified"
+                    _upb -Status "Remove Install Files" -CurrentOperation "Operation Cancelled"
 
                     if (-not $NoOutput) {
                         _wcp
@@ -254,9 +252,9 @@ try {
                 }
             }
             else {
-                Write-Verbose "$(Get-IndentString ($Indentation + 2))[/] No Installation Files Found to Remove"
-                Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] Installation Files Removed Successfully"
-                Update-ProgressBar -Status "Remove Install Files" -CurrentOperation "No Action Required"
+                Write-Verbose "$(_gis ($Indentation + 2))[/] No Installation Files Found to Remove"
+                Write-Verbose "$(_gis ($Indentation + 1))[+] Installation Files Removed Successfully"
+                _upb -Status "Remove Install Files" -CurrentOperation "No Action Required"
 
                 if (-not $NoOutput) {
                     _wcp
@@ -269,9 +267,9 @@ try {
             }
         }
         else {
-            Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] -KeepInstall Flag Passed to Uninstallation Script"
-            Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Installation Files were NOT Modified"
-            Update-ProgressBar -Status "Remove Install Files" -CurrentOperation "Action Skipped"
+            Write-Verbose "$(_gis ($Indentation + 2))[-] -KeepInstall Flag Passed to Uninstallation Script"
+            Write-Verbose "$(_gis ($Indentation + 1))[-] Installation Files were NOT Modified"
+            _upb -Status "Remove Install Files" -CurrentOperation "Action Skipped"
 
             if (-not $NoOutput) {
                 _wcp
@@ -285,38 +283,38 @@ try {
         
 
         # Uninstall the module in the current user's PowerShell Modules folder
-        Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Removing PowerShell Module..."
-        Update-ProgressBar -Status "Remove PowerShell Module" -CurrentOperation "Check Uninstall Status" -PercentageChange 0
+        Write-Verbose "$(_gis ($Indentation + 1))[>] Removing PowerShell Module..."
+        _upb -Status "Remove PowerShell Module" -CurrentOperation "Check Uninstall Status" -PercentageChange 0
         
         if (-not $KeepModule) {
             [string]$modulePath = & "$PSScriptRoot\Get-Link2RootInstall.ps1" -GetModulePath -Internal:$Install -Indentation ($Indentation + 2)
             [string]$modulesLocation = Split-Path $modulePath -Parent
             
             if (Test-Path $modulePath) {
-                Write-Verbose "$(Get-IndentString ($Indentation + 2))[>] Requesting User Confirmation to Proceed with Uninstallation of PowerShell Module..."
+                Write-Verbose "$(_gis ($Indentation + 2))[>] Requesting User Confirmation to Proceed with Uninstallation of PowerShell Module..."
 
                 if ($yesToAll -or $PSCmdlet.ShouldProcess(
-                    "$(Get-IndentString ($Indentation + 3))[+] Confirmation APPROVED",
+                    "$(_gis ($Indentation + 3))[+] Confirmation APPROVED",
                     "Uninstall Link2Root PowerShell Module from $modulesLocation",
                     "Confirm`nAre you sure you want to perform this action?"
                 )) {
                     if ($yesToAll) {
-                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Confirmation Automatically Approved via Previous `"Yes to All`" Response"
+                        Write-Verbose "$(_gis ($Indentation + 2))[+] Confirmation Automatically Approved via Previous `"Yes to All`" Response"
                     }
                     elseif ($ConfirmPreference -in @("None", "High")) {
-                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Confirmation Automatically Approved due to Current ConfirmPreference Level ($ConfirmPreference)"
+                        Write-Verbose "$(_gis ($Indentation + 2))[+] Confirmation Automatically Approved due to Current ConfirmPreference Level ($ConfirmPreference)"
                     }
                     else {
-                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] User Approved Confirmation."
+                        Write-Verbose "$(_gis ($Indentation + 2))[+] User Approved Confirmation."
                     }
 
                     try {
-                        Update-ProgressBar -Status "Remove PowerShell Module Files" -CurrentOperation "Remove Files" -PercentageChange 0
+                        _upb -Status "Remove PowerShell Module Files" -CurrentOperation "Remove Files" -PercentageChange 0
                         Remove-Item -Path $modulePath -Recurse @NO_RISK_PARAMS
 
-                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Removed PowerShell Module from Location: $modulePath"
-                        Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] PowerShell Module were Successfully Removed"
-                        Update-ProgressBar -Status "Remove PowerShell Module Files" -CurrentOperation "Operation Completed Successfully"
+                        Write-Verbose "$(_gis ($Indentation + 2))[+] Removed PowerShell Module from Location: $modulePath"
+                        Write-Verbose "$(_gis ($Indentation + 1))[+] PowerShell Module were Successfully Removed"
+                        _upb -Status "Remove PowerShell Module Files" -CurrentOperation "Operation Completed Successfully"
                         $success = $true
                         
                         if (-not $NoOutput) {
@@ -330,9 +328,9 @@ try {
                     }
                     catch {
                         if ($_.ErrorDetails.Message -ilike "*Access to the path*is denied.") {
-                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[/] Insufficient Access to Remove PowerShell Module"
-                            Write-Verbose "$(Get-IndentString ($Indentation + 1))[/] PowerShell Module Pending Manual Uninstallation"
-                            Update-ProgressBar -Status "Remove PowerShell Module" -CurrentOperation "Operation Completed with Warnings"
+                            Write-Verbose "$(_gis ($Indentation + 2))[/] Insufficient Access to Remove PowerShell Module"
+                            Write-Verbose "$(_gis ($Indentation + 1))[/] PowerShell Module Pending Manual Uninstallation"
+                            _upb -Status "Remove PowerShell Module" -CurrentOperation "Operation Completed with Warnings"
 
                             if (-not $NoOutput) {
                                 Write-Warning "PowerShell does not have permission to modify $modulePath. This often caused by Anti-Virus Software or Windows Security's `"Controlled Folder Access`" option."
@@ -346,9 +344,9 @@ try {
                             }
                         }
                         else {
-                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] Failed to Remove PowerShell Module"
-                            Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] PowerShell Module was NOT Removed"
-                            Update-ProgressBar -Status "Remove PowerShell Module" -CurrentOperation "Operation Failed"
+                            Write-Verbose "$(_gis ($Indentation + 2))[-] Failed to Remove PowerShell Module"
+                            Write-Verbose "$(_gis ($Indentation + 1))[-] PowerShell Module was NOT Removed"
+                            _upb -Status "Remove PowerShell Module" -CurrentOperation "Operation Failed"
                             $failed = $true
                 
                             if (-not $NoOutput) {
@@ -365,10 +363,10 @@ try {
                     }
                 }
                 elseif (-not $WhatIfPreference) {
-                    Write-Verbose "$(Get-IndentString ($Indentation + 3))[-] Confirmation NOT Approved"
-                    Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] User Rejected Confirmation"
-                    Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] PowerShell Module was NOT Modified"
-                    Update-ProgressBar -Status "Remove PowerShell Module" -CurrentOperation "Operation Cancelled"
+                    Write-Verbose "$(_gis ($Indentation + 3))[-] Confirmation NOT Approved"
+                    Write-Verbose "$(_gis ($Indentation + 2))[-] User Rejected Confirmation"
+                    Write-Verbose "$(_gis ($Indentation + 1))[-] PowerShell Module was NOT Modified"
+                    _upb -Status "Remove PowerShell Module" -CurrentOperation "Operation Cancelled"
 
                     if (-not $NoOutput) {
                         _wcp
@@ -381,9 +379,9 @@ try {
                 }
             }
             else {
-                Write-Verbose "$(Get-IndentString ($Indentation + 2))[/] No PowerShell Module Files Found to Remove"
-                Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] PowerShell Module Removed Successfully"
-                Update-ProgressBar -Status "Remove PowerShell Module" -CurrentOperation "No Action Required"
+                Write-Verbose "$(_gis ($Indentation + 2))[/] No PowerShell Module Files Found to Remove"
+                Write-Verbose "$(_gis ($Indentation + 1))[+] PowerShell Module Removed Successfully"
+                _upb -Status "Remove PowerShell Module" -CurrentOperation "No Action Required"
 
                 if (-not $NoOutput) {
                     _wcp
@@ -397,9 +395,9 @@ try {
             }
         }
         else {
-            Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] -KeepModule Flag Passed to Uninstallation Script"
-            Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] PowerShell Module was NOT Modified"
-            Update-ProgressBar -Status "Remove PowerShell Module" -CurrentOperation "Action Skipped"
+            Write-Verbose "$(_gis ($Indentation + 2))[-] -KeepModule Flag Passed to Uninstallation Script"
+            Write-Verbose "$(_gis ($Indentation + 1))[-] PowerShell Module was NOT Modified"
+            _upb -Status "Remove PowerShell Module" -CurrentOperation "Action Skipped"
 
             if (-not $NoOutput) {
                 _wcp
@@ -413,37 +411,37 @@ try {
     
 
         # Remove the installation directory from the Current User's PATH
-        Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Updating User PATH..."
-        Update-ProgressBar -Status "Update User PATH" -CurrentOperation "Check Uninstall Status" -PercentageChange 0
+        Write-Verbose "$(_gis ($Indentation + 1))[>] Updating User PATH..."
+        _upb -Status "Update User PATH" -CurrentOperation "Check Uninstall Status" -PercentageChange 0
         
         if (-not $KeepPATH) {
             [string[]]$userPATH = Get-UserPATH
             [string]$username = Get-FullyQualifiedUsername
     
             if (Test-UserPATH -Entry $installLocation -PATH $userPATH) {
-                Write-Verbose "$(Get-IndentString ($Indentation + 2))[>] Requesting User Confirmation to Proceed with User PATH Update..."
+                Write-Verbose "$(_gis ($Indentation + 2))[>] Requesting User Confirmation to Proceed with User PATH Update..."
                 
                 if ($yesToAll -or $PSCmdlet.ShouldProcess(
-                    "$(Get-IndentString ($Indentation + 3))[+] Confirmation APPROVED",
+                    "$(_gis ($Indentation + 3))[+] Confirmation APPROVED",
                     "Remove $installLocation from $username's PATH",
                     "Confirm`nAre you sure you want to perform this action?"
                 )) {
                     if ($yesToAll) {
-                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Confirmation Automatically Approved via Previous `"Yes to All`" Response"
+                        Write-Verbose "$(_gis ($Indentation + 2))[+] Confirmation Automatically Approved via Previous `"Yes to All`" Response"
                     }
                     elseif ($ConfirmPreference -in @("None", "High")) {
-                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Confirmation Automatically Approved due to Current ConfirmPreference Level ($ConfirmPreference)"
+                        Write-Verbose "$(_gis ($Indentation + 2))[+] Confirmation Automatically Approved due to Current ConfirmPreference Level ($ConfirmPreference)"
                     }
                     else {
-                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] User Approved Confirmation."
+                        Write-Verbose "$(_gis ($Indentation + 2))[+] User Approved Confirmation."
                     }
 
                     try {
-                        Update-ProgressBar -Status "Update User PATH" -CurrentOperation "Remove PATH Entry" -PercentageChange 0
+                        _upb -Status "Update User PATH" -CurrentOperation "Remove PATH Entry" -PercentageChange 0
                         $userPATH.Where({
     
                             if ($_ -ieq $installLocation) {
-                                Write-Verbose "$(Get-IndentString ($Indentation + 3))[+] Removed Entry: $_"
+                                Write-Verbose "$(_gis ($Indentation + 3))[+] Removed Entry: $_"
                                 return $false
                             }
     
@@ -451,9 +449,9 @@ try {
                         
                         }) | Set-UserPATH -Verbose:$VerbosePreference -Indentation ($Indentation + 3);
 
-                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Removed Matching Entries from User PATH: $installLocation"
-                        Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] User PATH was Successfully Modified"
-                        Update-ProgressBar -Status "Update User PATH" -CurrentOperation "Operation Completed Successfully"
+                        Write-Verbose "$(_gis ($Indentation + 2))[+] Removed Matching Entries from User PATH: $installLocation"
+                        Write-Verbose "$(_gis ($Indentation + 1))[+] User PATH was Successfully Modified"
+                        _upb -Status "Update User PATH" -CurrentOperation "Operation Completed Successfully"
                         $success = $true
                         
                         if (-not $NoOutput) {    
@@ -465,9 +463,9 @@ try {
                         }
                     }
                     catch {
-                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] Failed to Update User PATH"
-                        Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] User PATH was NOT Modified"
-                        Update-ProgressBar -Status "Update User PATH" -CurrentOperation "Operation Failed"
+                        Write-Verbose "$(_gis ($Indentation + 2))[-] Failed to Update User PATH"
+                        Write-Verbose "$(_gis ($Indentation + 1))[-] User PATH was NOT Modified"
+                        _upb -Status "Update User PATH" -CurrentOperation "Operation Failed"
                         $failed = $true
                         
                         if (-not $NoOutput) {
@@ -482,10 +480,10 @@ try {
                     }
                 }
                 elseif (-not $WhatIfPreference) {
-                    Write-Verbose "$(Get-IndentString ($Indentation + 3))[-] Confirmation NOT Approved"
-                    Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] User Rejected Confirmation"
-                    Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] User PATH was NOT Modified"
-                    Update-ProgressBar -Status "Update User PATH" -CurrentOperation "Operation Cancelled"
+                    Write-Verbose "$(_gis ($Indentation + 3))[-] Confirmation NOT Approved"
+                    Write-Verbose "$(_gis ($Indentation + 2))[-] User Rejected Confirmation"
+                    Write-Verbose "$(_gis ($Indentation + 1))[-] User PATH was NOT Modified"
+                    _upb -Status "Update User PATH" -CurrentOperation "Operation Cancelled"
 
                     if (-not $NoOutput) {
                         _wcp
@@ -498,9 +496,9 @@ try {
                 }
             }
             else {
-                Write-Verbose "$(Get-IndentString ($Indentation + 2))[/] No PATH Entries Found to Remove"
-                Write-Verbose "$(Get-IndentString ($Indentation + 1))[/] User PATH was NOT Modified"
-                Update-ProgressBar -Status "Remove PATH Entry" -CurrentOperation "No Action Required"
+                Write-Verbose "$(_gis ($Indentation + 2))[/] No PATH Entries Found to Remove"
+                Write-Verbose "$(_gis ($Indentation + 1))[/] User PATH was NOT Modified"
+                _upb -Status "Remove PATH Entry" -CurrentOperation "No Action Required"
 
                 if (-not $NoOutput) {
                     _wcp
@@ -513,9 +511,9 @@ try {
             }
         }
         else {
-            Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] -KeepPATH Flag Passed to Uninstallation Script"
-            Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] User PATH was NOT Modified"
-            Update-ProgressBar -Status "Update User PATH" -CurrentOperation "Action Skipped"
+            Write-Verbose "$(_gis ($Indentation + 2))[-] -KeepPATH Flag Passed to Uninstallation Script"
+            Write-Verbose "$(_gis ($Indentation + 1))[-] User PATH was NOT Modified"
+            _upb -Status "Update User PATH" -CurrentOperation "Action Skipped"
 
             if (-not $NoOutput) {
                 _wcp
@@ -528,15 +526,15 @@ try {
         }
 
 
-        if (-not $success -and -not $failed)    { Write-Verbose "$(Get-IndentString $Indentation)[/] No Changes Made by the Link2Root Uninstaller" }
-        else                                    { Write-Verbose "$(Get-IndentString $Indentation)[+] Link2Root Uninstaller Completed Successfully" }
+        if (-not $success -and -not $failed)    { Write-Verbose "$(_gis $Indentation)[/] No Changes Made by the Link2Root Uninstaller" }
+        else                                    { Write-Verbose "$(_gis $Indentation)[+] Link2Root Uninstaller Completed Successfully" }
     }
     else {
-        Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] User Rejected Confirmation."
-        Write-Verbose "$(Get-IndentString $Indentation)[-] Link2Root Uninstallation Aborted."
+        Write-Verbose "$(_gis ($Indentation + 1))[-] User Rejected Confirmation."
+        Write-Verbose "$(_gis $Indentation)[-] Link2Root Uninstallation Aborted."
     }
 
-    Update-ProgressBar -Status "Uninstallation Complete" -PercentageChange 100
+    _upb -Status "Uninstallation Complete" -PercentageChange 100
     
     if (-not $NoOutput) {
         # Write-Host ""
@@ -572,8 +570,8 @@ try {
     }
 }
 catch {
-    Write-Verbose "$(Get-IndentString $Indentation)[-] Link2Root Uninstaller Failed"
-    Update-ProgressBar -Status "Uninstallation Failed" -PercentageChange 100
+    Write-Verbose "$(_gis $Indentation)[-] Link2Root Uninstaller Failed"
+    _upb -Status "Uninstallation Failed" -PercentageChange 100
     throw $_
 }
 finally {

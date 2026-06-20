@@ -142,7 +142,7 @@ function New-TemporaryFolder {
     $tempFolder = Join-Path $tempPath $name
 
     New-Item -Path $tempFolder -ItemType Directory @NO_RISK_PARAMS | Out-Null
-    Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Created Temporary Directory: $name"
+    Write-Verbose "$(_gis ($Indentation + 2))[+] Created Temporary Directory: $name"
     return $tempFolder
 
 }
@@ -171,7 +171,7 @@ function New-InstallDirectory {
     New-Item @newItemArgs @NO_RISK_PARAMS | Out-Null
     
     if (Test-Path "$Path\$Name") {
-        Write-Verbose "$(Get-IndentString ($Indentation + $InnerIndentation + 3))[+] New Directory: $(Join-Path $Path $Name)"
+        Write-Verbose "$(_gis ($Indentation + $InnerIndentation + 3))[+] New Directory: $(Join-Path $Path $Name)"
     }
     else {
         throw "Failed to Create Directory '$Name' in $(Resolve-Path $Path)"
@@ -215,22 +215,22 @@ function Copy-ToTemporaryFolder {
     }
 
     end {
-        Write-Verbose "$(Get-IndentString ($Indentation + $InnerIndentation + 3))[>] Copying Files to $Destination..."
-        Write-Verbose "$(Get-IndentString ($Indentation + $InnerIndentation + 4))[>] File Patterns:"
+        Write-Verbose "$(_gis ($Indentation + $InnerIndentation + 3))[>] Copying Files to $Destination..."
+        Write-Verbose "$(_gis ($Indentation + $InnerIndentation + 4))[>] File Patterns:"
 
         foreach ($currentPath in $allPaths) {
-            Write-Verbose "$(Get-IndentString ($Indentation + $InnerIndentation + 5))[#] $currentPath"
+            Write-Verbose "$(_gis ($Indentation + $InnerIndentation + 5))[#] $currentPath"
         }
 
         [string[]]$resolvedPaths = Get-Item $allPaths -Filter $Filter
 
-        Write-Verbose "$(Get-IndentString ($Indentation + $InnerIndentation + 4))[>] Matched Files:"
+        Write-Verbose "$(_gis ($Indentation + $InnerIndentation + 4))[>] Matched Files:"
 
         foreach ($currentPath in $resolvedPaths) {
-            Write-Verbose "$(Get-IndentString ($Indentation + $InnerIndentation + 5))[+] $currentPath"
+            Write-Verbose "$(_gis ($Indentation + $InnerIndentation + 5))[+] $currentPath"
         }
 
-        Write-Verbose "$(Get-IndentString ($Indentation + $InnerIndentation + 4))[>] Copying Files..."
+        Write-Verbose "$(_gis ($Indentation + $InnerIndentation + 4))[>] Copying Files..."
         Add-ProgressBar -Name "Copying Files" -DefaultPercentageChange (100 / $resolvedPaths.Count)
 
         try {
@@ -238,7 +238,7 @@ function Copy-ToTemporaryFolder {
                 if (Test-Path $resolvedPath -PathType Container) {
                     [string]$newDestination = $Destination
     
-                    Update-ProgressBar -Status $resolvedPath -CurrentOperation "Copy Directory" -PercentageChange 0
+                    _upb -Status $resolvedPath -CurrentOperation "Copy Directory" -PercentageChange 0
     
                     if ($Name.Trim() -ne "") {
                         $newDestination += "\$Name"
@@ -257,7 +257,7 @@ function Copy-ToTemporaryFolder {
                         )
                     }
                     
-                    Write-Verbose "$(Get-IndentString ($Indentation + $InnerIndentation + 5))[>] Copying Directory: $resolvedPath"
+                    Write-Verbose "$(_gis ($Indentation + $InnerIndentation + 5))[>] Copying Directory: $resolvedPath"
                     Copy-ToTemporaryFolder `
                         -Path (Get-ChildItem $resolvedPath -Filter $Filter).FullName `
                         -Destination $newDestination `
@@ -265,8 +265,8 @@ function Copy-ToTemporaryFolder {
                         -Include $Include `
                         -Exclude $Exclude `
                         -InnerIndentation ($InnerIndentation + 3)
-                    Write-Verbose "$(Get-IndentString ($Indentation + $InnerIndentation + 5))[+] Copied Directory: $resolvedPath"
-                    Update-ProgressBar -Status $resolvedPath -CurrentOperation "Directory Copied"
+                    Write-Verbose "$(_gis ($Indentation + $InnerIndentation + 5))[+] Copied Directory: $resolvedPath"
+                    _upb -Status $resolvedPath -CurrentOperation "Directory Copied"
                 }
                 else {
                     $filePatternTestArgs = @{
@@ -281,7 +281,7 @@ function Copy-ToTemporaryFolder {
                     if (Test-FilePattern @filePatternTestArgs) {
                         [string]$newDestination = $Destination
     
-                        Update-ProgressBar -Status $resolvedPath -CurrentOperation "Copy File" -PercentageChange 0
+                        _upb -Status $resolvedPath -CurrentOperation "Copy File" -PercentageChange 0
     
                         if ($Name.Trim() -ne "") {
                             $newDestination += "\$Name"
@@ -289,11 +289,11 @@ function Copy-ToTemporaryFolder {
                         }
     
                         Copy-Item -Path $resolvedPath -Destination $newDestination @NO_RISK_PARAMS | Out-Null
-                        Write-Verbose "$(Get-IndentString ($Indentation + $InnerIndentation + 5))[+] Copied File: $resolvedPath"
-                        Update-ProgressBar -Status $resolvedPath -CurrentOperation "File Copied"
+                        Write-Verbose "$(_gis ($Indentation + $InnerIndentation + 5))[+] Copied File: $resolvedPath"
+                        _upb -Status $resolvedPath -CurrentOperation "File Copied"
     
                         if (-not (Test-Path $Destination)) {
-                            Write-Verbose "$(Get-IndentString -Indentation 2)[-] File: $resolvedPath"
+                            Write-Verbose "$(_gis -Indentation 2)[-] File: $resolvedPath"
                             throw "Failed to Copy $resolvedPath to $Destination"
                         }
                     }
@@ -301,8 +301,8 @@ function Copy-ToTemporaryFolder {
     
             }
 
-            Write-Verbose "$(Get-IndentString ($Indentation + $InnerIndentation + 4))[+] Files Copied Successfully"
-            Write-Verbose "$(Get-IndentString ($Indentation + $InnerIndentation + 3))[+] Successfully Copied Files to $Destination"
+            Write-Verbose "$(_gis ($Indentation + $InnerIndentation + 4))[+] Files Copied Successfully"
+            Write-Verbose "$(_gis ($Indentation + $InnerIndentation + 3))[+] Successfully Copied Files to $Destination"
         }
         catch {
             throw $_
@@ -342,7 +342,7 @@ function Move-TemporaryFolder {
     }
 
     Move-Item -Path $tempFolder -Destination $fullDestPath @NO_RISK_PARAMS | Out-Null
-    Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Files Copied to Installation Location: $fullDestPath"
+    Write-Verbose "$(_gis ($Indentation + 2))[+] Files Copied to Installation Location: $fullDestPath"
 
     if (-not (Test-Path $fullDestPath)) {
         throw "Failed to Move $tempFolder to $fullDestPath"
@@ -366,7 +366,7 @@ function Remove-TemporaryFolder {
 
     if ($TempFolder -ilike "$tempLocation*" -and (Test-Path $tempFolder)) {
         Remove-Item $tempFolder -Recurse -Force @NO_RISK_PARAMS
-        Write-Verbose "$(Get-IndentString -Indentation 1)[+] Removed Temporary Directory: $tempFolder"
+        Write-Verbose "$(_gis -Indentation 1)[+] Removed Temporary Directory: $tempFolder"
 
         if (Test-Path $tempFolder) {
             Write-Warning "Failed to Remove Temporary Directory: $tempFolder"
@@ -431,9 +431,6 @@ if ($Silent) {
     $NoProgress = $true
 }
 
-if (-not $NoProgress)   { Enable-ProgressBars }
-else                    { Disable-ProgressBars }
-
 try {
     [hashtable]$installTestArgs = @{
         NoOutput = $true
@@ -445,16 +442,17 @@ try {
         Indentation = ($Indentation + 2)
     }
 
-    Write-Verbose "$(Get-IndentString $Indentation)[>] Running Link2Root Installer..."
+    Write-Verbose "$(_gis $Indentation)[>] Running Link2Root Installer..."
+    Hide-ProgressBars $NoProgress
     Add-ProgressBar -Name "Installing Link2Root" -DefaultPercentageChange 25 -InitialSecondsRemaining 5
-    Update-ProgressBar -Status "Check Current Installation Status"
+    _upb -Status "Check Current Installation Status"
 
-    Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Checking for Installation Eligibility..."
+    Write-Verbose "$(_gis ($Indentation + 1))[>] Checking for Installation Eligibility..."
     
     if ((& "$PSScriptRoot\Test-Link2RootInstall.ps1" @installTestArgs) -and -not $Reinstall) {
-        Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Ineligible for Installation"
-        Write-Verbose "$(Get-IndentString $Indentation)[-] Link2Root Installation Aborted."
-        Update-ProgressBar -Status "No Installation Required" -PercentageChange 100
+        Write-Verbose "$(_gis ($Indentation + 1))[-] Ineligible for Installation"
+        Write-Verbose "$(_gis $Indentation)[-] Link2Root Installation Aborted."
+        _upb -Status "No Installation Required" -PercentageChange 100
 
         if (-not $NoOutput) {
             _wc "Link2Root" -NoNewline
@@ -470,7 +468,7 @@ try {
         }
     }
 
-    Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] Eligible for Installation"
+    Write-Verbose "$(_gis ($Indentation + 1))[+] Eligible for Installation"
     
     try {
         [string]$installLocation = & "$PSScriptRoot\Get-Link2RootInstall.ps1"
@@ -487,11 +485,11 @@ try {
             Set-InstallVerb Reinstall
         }
 
-        Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Requesting User Confirmation to Proceed with $(Get-InstallVerb -)ation..."
+        Write-Verbose "$(_gis ($Indentation + 1))[>] Requesting User Confirmation to Proceed with $(Get-InstallVerb -)ation..."
     
         if ($Force -or $PSCmdlet.ShouldContinue("$(Get-InstallVerb -Installer) Link2Root for $(Get-FullyQualifiedUsername)", "Confirm", [ref]$yesToAll, [ref]$noToAll)) {
-            if (-not $Force)    { Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] User Approved Confirmation." }
-            else                { Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] Confirmation Automatically Approved via -Force Flag." }
+            if (-not $Force)    { Write-Verbose "$(_gis ($Indentation + 1))[+] User Approved Confirmation." }
+            else                { Write-Verbose "$(_gis ($Indentation + 1))[+] Confirmation Automatically Approved via -Force Flag." }
 
             [bool]$scriptIsInstalled = Test-Path $installLocation
             [bool]$moduleIsInstalled = Test-Path $modulePath
@@ -499,8 +497,8 @@ try {
             
 
             # Install the script in the current user's local appdata folder
-            Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Copy Link2Root Files..."
-            Update-ProgressBar -Status "Copy Link2Root Files" -CurrentOperation "Check Install Status" -PercentageChange 0
+            Write-Verbose "$(_gis ($Indentation + 1))[>] Copy Link2Root Files..."
+            _upb -Status "Copy Link2Root Files" -CurrentOperation "Check Install Status" -PercentageChange 0
             (& {
                 if (-not $scriptIsInstalled) { return "Install" }
                 else                         { return "Reinstall" }
@@ -508,27 +506,27 @@ try {
 
             if (-not $SkipScriptInstall) {
                 if (-not $scriptIsInstalled -or $Reinstall) {                    
-                    Write-Verbose "$(Get-IndentString ($Indentation + 2))[>] Requesting User Confirmation to Proceed with $(Get-InstallVerb -Installer)ation of Link2Root Files..."
+                    Write-Verbose "$(_gis ($Indentation + 2))[>] Requesting User Confirmation to Proceed with $(Get-InstallVerb -Installer)ation of Link2Root Files..."
             
                     if ($yesToAll -or $PSCmdlet.ShouldProcess(
-                        "$(Get-IndentString ($Indentation + 3))[+] Confirmation APPROVED",
+                        "$(_gis ($Indentation + 3))[+] Confirmation APPROVED",
                         "$(Get-InstallVerb) Link2Root in $installLocation",
                         "Confirm`nAre you sure you want to perform this action?"
                     )) {
                         [string]$tempFolder = ""
 
                         if ($yesToAll) {
-                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Confirmation Automatically Approved via Previous `"Yes to All`" Response"
+                            Write-Verbose "$(_gis ($Indentation + 2))[+] Confirmation Automatically Approved via Previous `"Yes to All`" Response"
                         }
                         elseif ($ConfirmPreference -in @("None", "High")) {
-                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Confirmation Automatically Approved due to Current ConfirmPreference Level ($ConfirmPreference)"
+                            Write-Verbose "$(_gis ($Indentation + 2))[+] Confirmation Automatically Approved due to Current ConfirmPreference Level ($ConfirmPreference)"
                         }
                         else {
-                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] User Approved Confirmation."
+                            Write-Verbose "$(_gis ($Indentation + 2))[+] User Approved Confirmation."
                         }
     
                         try {
-                            Update-ProgressBar -Status "Copy Link2Root Files" -CurrentOperation "Create Temporary Folder" -PercentageChange 5
+                            _upb -Status "Copy Link2Root Files" -CurrentOperation "Create Temporary Folder" -PercentageChange 5
     
                             $tempFolder = New-TemporaryFolder
                             [hashtable[]]$copyFileArgs = @(
@@ -552,22 +550,22 @@ try {
                             )
                 
                             try {
-                                Write-Verbose "$(Get-IndentString ($Indentation + 2))[>] Copy Installation Files to Temporary Directory..."
+                                Write-Verbose "$(_gis ($Indentation + 2))[>] Copy Installation Files to Temporary Directory..."
 
                                 foreach ($copyArgs in $copyFileArgs) {
                                     Copy-ToTemporaryFolder @copyArgs
                                 }
 
-                                Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Copied Installation Files to Temporary Directory"
+                                Write-Verbose "$(_gis ($Indentation + 2))[+] Copied Installation Files to Temporary Directory"
                             }
                             catch {
                                 throw $_
                             }
                             finally {
-                                Update-ProgressBar -Status "Copy Link2Root Files" -CurrentOperation "Copy Installation Files" -PercentageChange 15
+                                _upb -Status "Copy Link2Root Files" -CurrentOperation "Copy Installation Files" -PercentageChange 15
                             }
     
-                            Update-ProgressBar -Status "Copy Link2Root Files" -CurrentOperation "Validate File Integrity" -PercentageChange 5
+                            _upb -Status "Copy Link2Root Files" -CurrentOperation "Validate File Integrity" -PercentageChange 5
                             Assert-InstallIntegrity `
                                 -Source "$PSScriptRoot/../" `
                                 -Install $tempFolder `
@@ -576,8 +574,8 @@ try {
                                 -Indentation ($Indentation + 2)
                              
                             if ($scriptIsInstalled) {
-                                Write-Verbose "$(Get-IndentString ($Indentation + 2))[>] Removing Existing Installation Files for Reinstall..."
-                                Update-ProgressBar -Status "Copy Link2Root Files" -CurrentOperation "Remove Existing Files" -PercentageChange 0
+                                Write-Verbose "$(_gis ($Indentation + 2))[>] Removing Existing Installation Files for Reinstall..."
+                                _upb -Status "Copy Link2Root Files" -CurrentOperation "Remove Existing Files" -PercentageChange 0
                                 & "$PSScriptRoot\Uninstall-Link2Root.ps1" `
                                     -Reinstall `
                                     -Force `
@@ -587,14 +585,14 @@ try {
                                     -NoProgress:$NoProgress `
                                     -Verbose:$VerbosePreference `
                                     -Indentation ($Indentation + 3)
-                                Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Removed Existing Installation Files for Reinstall"
+                                Write-Verbose "$(_gis ($Indentation + 2))[+] Removed Existing Installation Files for Reinstall"
                             }
 
-                            Update-ProgressBar -Status "Copy Link2Root Files" -CurrentOperation "Finalize Changes" -PercentageChange 15
+                            _upb -Status "Copy Link2Root Files" -CurrentOperation "Finalize Changes" -PercentageChange 15
                             Move-TemporaryFolder -TempFolder $tempFolder -Destination $installLocation
                             
-                            Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] Link2Root Files Copied"
-                            Update-ProgressBar -Status "Copy Link2Root Files" -CurrentOperation "Operation Completed Successfully" -PercentageChange 10
+                            Write-Verbose "$(_gis ($Indentation + 1))[+] Link2Root Files Copied"
+                            _upb -Status "Copy Link2Root Files" -CurrentOperation "Operation Completed Successfully" -PercentageChange 10
                             $success = $true
 
                             if (-not $NoOutput) {
@@ -606,9 +604,9 @@ try {
                             }
                         }
                         catch {
-                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] Failed to Copy Installation Files"
-                            Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Link2Root Files were NOT Copied"
-                            Update-ProgressBar -Status "Copy Link2Root Files" -CurrentOperation "Operation Failed" -PercentageChange 100
+                            Write-Verbose "$(_gis ($Indentation + 2))[-] Failed to Copy Installation Files"
+                            Write-Verbose "$(_gis ($Indentation + 1))[-] Link2Root Files were NOT Copied"
+                            _upb -Status "Copy Link2Root Files" -CurrentOperation "Operation Failed" -PercentageChange 100
                             
                             if (-not $NoOutput) {
                                 _wcp -Failed
@@ -627,10 +625,10 @@ try {
                         }
                     }
                     elseif (-not $WhatIfPreference) {
-                        Write-Verbose "$(Get-IndentString ($Indentation + 3))[-] Confirmation NOT Approved"
-                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] User Rejected Confirmation"
-                        Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Link2Root Files were NOT Copied"
-                        Update-ProgressBar -Status "Copy Link2Root Files" -CurrentOperation "Operation Skipped"
+                        Write-Verbose "$(_gis ($Indentation + 3))[-] Confirmation NOT Approved"
+                        Write-Verbose "$(_gis ($Indentation + 2))[-] User Rejected Confirmation"
+                        Write-Verbose "$(_gis ($Indentation + 1))[-] Link2Root Files were NOT Copied"
+                        _upb -Status "Copy Link2Root Files" -CurrentOperation "Operation Skipped"
                         
                         if (-not $NoOutput) {
                             _wcp
@@ -643,9 +641,9 @@ try {
                     }
                 }
                 else {
-                    Write-Verbose "$(Get-IndentString ($Indentation + 2))[/] Existing Installation Files Found"
-                    Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] Link2Root Files Copied Successfully"
-                    Update-ProgressBar -Status "Copy Link2Root Files" -CurrentOperation "No Action Required"
+                    Write-Verbose "$(_gis ($Indentation + 2))[/] Existing Installation Files Found"
+                    Write-Verbose "$(_gis ($Indentation + 1))[+] Link2Root Files Copied Successfully"
+                    _upb -Status "Copy Link2Root Files" -CurrentOperation "No Action Required"
                     
                     if (-not $NoOutput) {
                         _wcp
@@ -658,9 +656,9 @@ try {
                 }
             }
             else {
-                Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] -SkipScriptInstall Flag Passed to Installation Script"
-                Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Link2Root Files were NOT Copied"
-                Update-ProgressBar -Status "Copy Link2Root Files" -CurrentOperation "Action Skipped"
+                Write-Verbose "$(_gis ($Indentation + 2))[-] -SkipScriptInstall Flag Passed to Installation Script"
+                Write-Verbose "$(_gis ($Indentation + 1))[-] Link2Root Files were NOT Copied"
+                _upb -Status "Copy Link2Root Files" -CurrentOperation "Action Skipped"
 
                 if (-not $NoOutput) {
                      _wcp
@@ -674,8 +672,8 @@ try {
             
 
             # Install the module in the current user's PowerShell Modules folder
-            Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Install PowerShell Module..."
-            Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "Check Install Status" -PercentageChange 0
+            Write-Verbose "$(_gis ($Indentation + 1))[>] Install PowerShell Module..."
+            _upb -Status "Install PowerShell Module" -CurrentOperation "Check Install Status" -PercentageChange 0
             (& {
                 if (-not $moduleIsInstalled) { return "Install" }
                 else                         { return "Reinstall" }
@@ -683,23 +681,23 @@ try {
 
             if (-not $SkipModuleInstall) {
                 if (-not $moduleIsInstalled -or $Reinstall) {
-                    Write-Verbose "$(Get-IndentString ($Indentation + 2))[>] Requesting User Confirmation to Proceed with $(Get-InstallVerb -Installer)ation of PowerShell Module..."
+                    Write-Verbose "$(_gis ($Indentation + 2))[>] Requesting User Confirmation to Proceed with $(Get-InstallVerb -Installer)ation of PowerShell Module..."
             
                     if ($yesToAll -or $PSCmdlet.ShouldProcess(
-                        "$(Get-IndentString ($Indentation + 3))[+] Confirmation APPROVED",
+                        "$(_gis ($Indentation + 3))[+] Confirmation APPROVED",
                         "$(Get-InstallVerb) Link2Root PowerShell Module in $modulesLocation",
                         "Confirm`nAre you sure you want to perform this action?"
                     )) {
                         [string]$tempFolder = ""
 
                         if ($yesToAll) {
-                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Confirmation Automatically Approved via Previous `"Yes to All`" Response"
+                            Write-Verbose "$(_gis ($Indentation + 2))[+] Confirmation Automatically Approved via Previous `"Yes to All`" Response"
                         }
                         elseif ($ConfirmPreference -in @("None", "High")) {
-                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Confirmation Automatically Approved due to Current ConfirmPreference Level ($ConfirmPreference)"
+                            Write-Verbose "$(_gis ($Indentation + 2))[+] Confirmation Automatically Approved due to Current ConfirmPreference Level ($ConfirmPreference)"
                         }
                         else {
-                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] User Approved Confirmation."
+                            Write-Verbose "$(_gis ($Indentation + 2))[+] User Approved Confirmation."
                         }
     
                         try {
@@ -710,15 +708,15 @@ try {
                                 ErrorAction = "SilentlyContinue"
                             }
                             
-                            Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "Create Temporary Folder" -PercentageChange 5
+                            _upb -Status "Install PowerShell Module" -CurrentOperation "Create Temporary Folder" -PercentageChange 5
                             $tempFolder = New-TemporaryFolder
     
-                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[>] Copy Installation Files to Temporary Directory..."
-                            Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "Copy PowerShell Module Files" -PercentageChange 5
+                            Write-Verbose "$(_gis ($Indentation + 2))[>] Copy Installation Files to Temporary Directory..."
+                            _upb -Status "Install PowerShell Module" -CurrentOperation "Copy PowerShell Module Files" -PercentageChange 5
                             Copy-ToTemporaryFolder -Path "$PSScriptRoot\..\Link2Root.ps?1" -Destination $tempFolder
-                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Copied Installation Files to Temporary Directory"
+                            Write-Verbose "$(_gis ($Indentation + 2))[+] Copied Installation Files to Temporary Directory"
                             
-                            Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "Verify File Integrity" -PercentageChange 5
+                            _upb -Status "Install PowerShell Module" -CurrentOperation "Verify File Integrity" -PercentageChange 5
                             Assert-InstallIntegrity `
                                 -Source "$PSScriptRoot/../" `
                                 -Install $tempFolder `
@@ -728,14 +726,14 @@ try {
                                 
                             # Test if we can write to the /Documents folder or not
                             if ($testFile = (New-Item @testFileArgs @NO_RISK_PARAMS)) {
-                                Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Permissions Sufficient to make changes to Documents Directory"
+                                Write-Verbose "$(_gis ($Indentation + 2))[+] Permissions Sufficient to make changes to Documents Directory"
                                 Remove-Item -Path $testFile @NO_RISK_PARAMS
 
-                                Write-Verbose "$(Get-IndentString ($Indentation + 2))[>] Locating PowerShell Modules Directory..."
+                                Write-Verbose "$(_gis ($Indentation + 2))[>] Locating PowerShell Modules Directory..."
 
                                 if (-not (Test-Path $modulesLocation)) {
-                                    Write-Verbose "$(Get-IndentString ($Indentation + 3))[-] Existing PowerShell Modules Directory NOT Found"
-                                    Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "Create PowerShell Folders" -PercentageChange 0
+                                    Write-Verbose "$(_gis ($Indentation + 3))[-] Existing PowerShell Modules Directory NOT Found"
+                                    _upb -Status "Install PowerShell Module" -CurrentOperation "Create PowerShell Folders" -PercentageChange 0
             
                                     if (-not (Test-Path $psFolder)) {
                                         New-InstallDirectory -Path (Split-Path $psFolder -Parent) -Name (Split-Path $psFolder -Leaf)
@@ -744,14 +742,14 @@ try {
                                     New-InstallDirectory -Path $psFolder -Name (Split-Path $modulesLocation -Leaf)
                                 }
                                 else {
-                                    Write-Verbose "$(Get-IndentString ($Indentation + 3))[+] Existing PowerShell Modules Directory FOUND"
+                                    Write-Verbose "$(_gis ($Indentation + 3))[+] Existing PowerShell Modules Directory FOUND"
                                 }
 
-                                Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] PowerShell Modules Directory Located: $modulesLocation"
+                                Write-Verbose "$(_gis ($Indentation + 2))[+] PowerShell Modules Directory Located: $modulesLocation"
                     
                                 if ($moduleIsInstalled) {
-                                    Write-Verbose "$(Get-IndentString ($Indentation + 2))[>] Removing Existing PowerShell Module Files for Reinstall..."
-                                    Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "Remove Existing Files" -PercentageChange 0
+                                    Write-Verbose "$(_gis ($Indentation + 2))[>] Removing Existing PowerShell Module Files for Reinstall..."
+                                    _upb -Status "Install PowerShell Module" -CurrentOperation "Remove Existing Files" -PercentageChange 0
                                     & "$PSScriptRoot\Uninstall-Link2Root.ps1" `
                                         -Reinstall `
                                         -KeepInstall `
@@ -761,15 +759,15 @@ try {
                                         -Force `
                                         -Verbose:$VerbosePreference `
                                         -Indentation ($Indentation + 3)
-                                    Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Removed Existing PowerShell Module Files for Reinstall"
+                                    Write-Verbose "$(_gis ($Indentation + 2))[+] Removed Existing PowerShell Module Files for Reinstall"
                                 }
                     
-                                Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "Finalize Changes" -PercentageChange 5
+                                _upb -Status "Install PowerShell Module" -CurrentOperation "Finalize Changes" -PercentageChange 5
                                 Move-TemporaryFolder -TempFolder $tempFolder -Destination $modulePath
                                 $success = $true
     
-                                Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] PowerShell Module Installed"
-                                Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "Operation Completed Successfully" -PercentageChange 5
+                                Write-Verbose "$(_gis ($Indentation + 1))[+] PowerShell Module Installed"
+                                _upb -Status "Install PowerShell Module" -CurrentOperation "Operation Completed Successfully" -PercentageChange 5
                     
                                 if (-not $NoOutput) {
                                     _wcp -Success
@@ -806,7 +804,7 @@ try {
                                     Write-Verbose "PowerShell Module Folder already exists at $(Resolve-Path "$desktop\$psFolderName")"
                                 }
     
-                                Update-ProgressBar -Status "Update User PATH" -CurrentOperation "Operation Completed with Warnings" -PercentageChange 15
+                                _upb -Status "Update User PATH" -CurrentOperation "Operation Completed with Warnings" -PercentageChange 15
     
                                 if (-not $NoOutput) {
                                     _wcp
@@ -821,9 +819,9 @@ try {
                             }    
                         }
                         catch {
-                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] Failed to Install PowerShell Module"
-                            Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] PowerShell Module was NOT Installed"
-                            Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "Operation Failed" -PercentageChange 100
+                            Write-Verbose "$(_gis ($Indentation + 2))[-] Failed to Install PowerShell Module"
+                            Write-Verbose "$(_gis ($Indentation + 1))[-] PowerShell Module was NOT Installed"
+                            _upb -Status "Install PowerShell Module" -CurrentOperation "Operation Failed" -PercentageChange 100
                             
                             if (-not $NoOutput) {
                                 _wcp -Success
@@ -843,10 +841,10 @@ try {
                         }
                     }
                     elseif (-not $WhatIfPreference) {
-                        Write-Verbose "$(Get-IndentString ($Indentation + 3))[-] Confirmation NOT Approved"
-                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] User Rejected Confirmation"
-                        Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] PowerShell Module was NOT Installed"
-                        Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "Operation Skipped"
+                        Write-Verbose "$(_gis ($Indentation + 3))[-] Confirmation NOT Approved"
+                        Write-Verbose "$(_gis ($Indentation + 2))[-] User Rejected Confirmation"
+                        Write-Verbose "$(_gis ($Indentation + 1))[-] PowerShell Module was NOT Installed"
+                        _upb -Status "Install PowerShell Module" -CurrentOperation "Operation Skipped"
                         
                         if (-not $NoOutput) {
                             _wcp
@@ -859,9 +857,9 @@ try {
                     }
                 }
                 else {
-                    Write-Verbose "$(Get-IndentString ($Indentation + 2))[/] Existing PowerShell Module Files Found"
-                    Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] PowerShell Module Installed Successfully"
-                    Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "No Action Required"
+                    Write-Verbose "$(_gis ($Indentation + 2))[/] Existing PowerShell Module Files Found"
+                    Write-Verbose "$(_gis ($Indentation + 1))[+] PowerShell Module Installed Successfully"
+                    _upb -Status "Install PowerShell Module" -CurrentOperation "No Action Required"
                     
                     if (-not $NoOutput) {
                         _wcp
@@ -875,9 +873,9 @@ try {
                 }
             }
             else {
-                Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] -SkipModuleInstall Flag Passed to Installation Script"
-                Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] PowerShell Module was NOT Installed"
-                Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "Action Skipped"
+                Write-Verbose "$(_gis ($Indentation + 2))[-] -SkipModuleInstall Flag Passed to Installation Script"
+                Write-Verbose "$(_gis ($Indentation + 1))[-] PowerShell Module was NOT Installed"
+                _upb -Status "Install PowerShell Module" -CurrentOperation "Action Skipped"
 
                 if (-not $NoOutput) {
                      _wcp
@@ -890,8 +888,8 @@ try {
             }
     
             # Update the User's PATH
-            Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Update User PATH..."
-            Update-ProgressBar -Status "Update User PATH" -CurrentOperation "Check Install Status" -PercentageChange 0
+            Write-Verbose "$(_gis ($Indentation + 1))[>] Update User PATH..."
+            _upb -Status "Update User PATH" -CurrentOperation "Check Install Status" -PercentageChange 0
             [string]$installVerb = & {
                 if (-not $isAddedToPATH) { return "Add" }
                 else                     { return "Re-Add" }
@@ -899,26 +897,26 @@ try {
             
             if (-not $SkipPATHUpdate) {
                 if (-not $isAddedToPATH -or $Reinstall) {
-                    Write-Verbose "$(Get-IndentString ($Indentation + 2))[>] Requesting User Confirmation to Proceed with Modifying User PATH..."
+                    Write-Verbose "$(_gis ($Indentation + 2))[>] Requesting User Confirmation to Proceed with Modifying User PATH..."
                     
                     if ($yesToAll -or $PSCmdlet.ShouldProcess(
-                        "$(Get-IndentString ($Indentation + 3))[+] Confirmation APPROVED",
+                        "$(_gis ($Indentation + 3))[+] Confirmation APPROVED",
                         "$installVerb $installLocation to $username's PATH",
                         "Confirm`nAre you sure you want to perform this action?"
                     )) {
                         if ($yesToAll) {
-                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Confirmation Automatically Approved via Previous `"Yes to All`" Response"
+                            Write-Verbose "$(_gis ($Indentation + 2))[+] Confirmation Automatically Approved via Previous `"Yes to All`" Response"
                         }
                         elseif ($ConfirmPreference -in @("None", "High")) {
-                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Confirmation Automatically Approved due to Current ConfirmPreference Level ($ConfirmPreference)"
+                            Write-Verbose "$(_gis ($Indentation + 2))[+] Confirmation Automatically Approved due to Current ConfirmPreference Level ($ConfirmPreference)"
                         }
                         else {
-                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] User Approved Confirmation."
+                            Write-Verbose "$(_gis ($Indentation + 2))[+] User Approved Confirmation."
                         }
 
                         if ($isAddedToPATH) {
-                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[>] Removing Link2Root from $username's PATH for Reinstall..."
-                            Update-ProgressBar -Status "Update User PATH" -CurrentOperation "Remove Existing PATH Entry" -PercentageChange 0
+                            Write-Verbose "$(_gis ($Indentation + 2))[>] Removing Link2Root from $username's PATH for Reinstall..."
+                            _upb -Status "Update User PATH" -CurrentOperation "Remove Existing PATH Entry" -PercentageChange 0
                             & "$PSScriptRoot\Uninstall-Link2Root.ps1" `
                                 -Reinstall `
                                 -Force `
@@ -928,17 +926,17 @@ try {
                                 -NoProgress:$NoProgress `
                                 -Verbose:$VerbosePreference `
                                 -Indentation ($Indentation + 3)
-                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Removed Link2Root from $username's PATH for Reinstall"
+                            Write-Verbose "$(_gis ($Indentation + 2))[+] Removed Link2Root from $username's PATH for Reinstall"
                         }
         
-                        Update-ProgressBar -Status "Update User PATH" -CurrentOperation "Add PATH Entry" -PercentageChange 10
+                        _upb -Status "Update User PATH" -CurrentOperation "Add PATH Entry" -PercentageChange 10
                         Set-UserPATH `
                             -PATH ((Get-UserPATH) + @($installLocation)) `
                             -Verbose:$VerbosePreference `
                             -Indentation ($Indentation + 2)
 
-                        Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] User PATH Updated"
-                        Update-ProgressBar -Status "Update User PATH" -CurrentOperation "Operation Completed Successfully" -PercentageChange 15
+                        Write-Verbose "$(_gis ($Indentation + 1))[+] User PATH Updated"
+                        _upb -Status "Update User PATH" -CurrentOperation "Operation Completed Successfully" -PercentageChange 15
                         $success = $true
         
                         if (-not $NoOutput) {
@@ -950,10 +948,10 @@ try {
                         }
                     }
                     elseif (-not $WhatIfPreference) {
-                        Write-Verbose "$(Get-IndentString ($Indentation + 3))[-] Confirmation NOT Approved"
-                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] User Rejected Confirmation"
-                        Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] User PATH was NOT Modified"
-                        Update-ProgressBar -Status "Update User PATH" -CurrentOperation "Operation Skipped" -PercentageChange 25
+                        Write-Verbose "$(_gis ($Indentation + 3))[-] Confirmation NOT Approved"
+                        Write-Verbose "$(_gis ($Indentation + 2))[-] User Rejected Confirmation"
+                        Write-Verbose "$(_gis ($Indentation + 1))[-] User PATH was NOT Modified"
+                        _upb -Status "Update User PATH" -CurrentOperation "Operation Skipped" -PercentageChange 25
     
                         if (-not $NoOutput) {
                             _wcp
@@ -965,9 +963,9 @@ try {
                     }
                 }
                 else {
-                    Write-Verbose "$(Get-IndentString ($Indentation + 2))[/] Existing PATH Entries Found"
-                    Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] User PATH Successfully Modified"
-                    Update-ProgressBar -Status "Update User PATH" -CurrentOperation "No Action Required" -PercentageChange 25
+                    Write-Verbose "$(_gis ($Indentation + 2))[/] Existing PATH Entries Found"
+                    Write-Verbose "$(_gis ($Indentation + 1))[+] User PATH Successfully Modified"
+                    _upb -Status "Update User PATH" -CurrentOperation "No Action Required" -PercentageChange 25
                     
                     if (-not $NoOutput) {
                         _wcp
@@ -980,9 +978,9 @@ try {
                 }
             }
             else {
-                Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] -SkipPATHUpdate Flag Passed to Installation Script"
-                Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] User PATH was NOT Modified"
-                Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "Action Skipped"
+                Write-Verbose "$(_gis ($Indentation + 2))[-] -SkipPATHUpdate Flag Passed to Installation Script"
+                Write-Verbose "$(_gis ($Indentation + 1))[-] User PATH was NOT Modified"
+                _upb -Status "Install PowerShell Module" -CurrentOperation "Action Skipped"
 
                 if (-not $NoOutput) {
                      _wcp
@@ -993,15 +991,15 @@ try {
                 }
             }
 
-            if ($success)   { Write-Verbose "$(Get-IndentString $Indentation)[+] Link2Root Installer Completed Successfully" }
-            else            { Write-Verbose "$(Get-IndentString $Indentation)[/] No Changes Made by the Link2Root Installer" }
+            if ($success)   { Write-Verbose "$(_gis $Indentation)[+] Link2Root Installer Completed Successfully" }
+            else            { Write-Verbose "$(_gis $Indentation)[/] No Changes Made by the Link2Root Installer" }
         }
         else {
-            Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] User Rejected Confirmation."
-            Write-Verbose "$(Get-IndentString $Indentation)[-] Link2Root Installation Aborted."
+            Write-Verbose "$(_gis ($Indentation + 1))[-] User Rejected Confirmation."
+            Write-Verbose "$(_gis $Indentation)[-] Link2Root Installation Aborted."
         }
 
-        Update-ProgressBar -Status "Installation Complete" -PercentageChange 100
+        _upb -Status "Installation Complete" -PercentageChange 100
     
         if (-not $NoOutput) {
             # Write-Host ""
@@ -1023,7 +1021,7 @@ try {
         }
     }
     catch {
-        Update-ProgressBar -Status "Installation Failed" -PercentageChange 100
+        _upb -Status "Installation Failed" -PercentageChange 100
 
         if (-not $NoOutput) {
             Write-Host ""
