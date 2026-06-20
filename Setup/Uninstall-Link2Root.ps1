@@ -26,7 +26,7 @@
     When the `-PassThru` switch is used, `Uninstall-Link2Root.ps1` returns
     `$true` if the uninstallation was successful or `$false` if it was not.
 #>
-[CmdletBinding(SupportsShouldProcess)]
+[CmdletBinding(DefaultParameterSetName = "WithOutput", SupportsShouldProcess)]
 param(
     <#
         Keep the installation of Link2Root in the
@@ -71,6 +71,24 @@ param(
     [switch]$Force,
 
     <#
+        Suppress all non-error output.
+
+        By default and when this switch is omitted, information will
+        be output to the host indicating the progress and status
+        of the uninstallation and the individual components for Link2Root.
+    #>
+    [Parameter(ParameterSetName = "WithoutOutputOrProgress", Mandatory)]
+    [switch]$Silent,
+    
+    [Parameter(ParameterSetName = "WithoutOutput", Mandatory)]
+    [switch]$NoOutput,
+
+    [Alias("HideProgress")]
+    [Parameter(ParameterSetName = "WithOutput")]
+    [Parameter(ParameterSetName = "WithoutOutput")]
+    [switch]$NoProgress,
+
+    <#
         Indicates that this function should return a boolean value
         indicating whether or not the uninstallation was successful.
 
@@ -78,27 +96,22 @@ param(
         does not generate any output.
     #>
     [switch]$PassThru,
-    
-    <#
-        Suppress all non-error output.
-
-        By default and when this switch is omitted, information will
-        be output to the host indicating the progress and status
-        of the uninstallation and the individual components for Link2Root.
-    #>
-    [switch]$Silent,
 
     [Alias("Reinstall", "Rollback")]
     [Parameter(DontShow)]
-    [switch]$Install
+    [switch]$Install,
+
+    <#
+        An internal parameter used to specify the indentation
+        level to use for output logging.
+    #>
+    [Parameter(DontShow)]
+    [int]$Indentation = 0
 )
 
 
 Import-Module "$PSScriptRoot\Utils.psm1" -Verbose:($VerbosePreference -and -not $Install)
 
-[string]$installLocation = & "$PSScriptRoot\Get-Link2RootInstall.ps1" -Internal:$Install
-[string]$modulePath = & "$PSScriptRoot\Get-Link2RootInstall.ps1" -GetModulePath -Internal:$Install
-[string]$modulesLocation = Split-Path $modulePath -Parent
 [bool]$success = $false
 [bool]$failed = $false
 [bool]$yesToAll = $false
@@ -111,225 +124,458 @@ if ($Force -and -not $PSBoundParameters.ContainsKey("Confirm")) {
     $ConfirmPreference = "None"
 }
 
-if (-not $Install -and -not (& "$PSScriptRoot\Test-Link2RootInstall.ps1" -Silent -PassThru -Internal)) {
-    if (-not $Silent) {
-        _wc "Link2Root" -NoNewline
-        Write-Host " is " -NoNewline
-        Write-Host "Not Currently Installed!" -ForegroundColor DarkYellow
-    }
-
-    if ($PassThru) {
-        return $false
-    }
-    else {
-        return
-    }
+if ($Silent) {
+    $NoOutput = $true
+    $NoProgress = $true
 }
 
-if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root", "Confirm", [ref]$yesToAll, [ref]$noToAll)) {
-    # Uninstall the script in the current user's local appdata folder
-    if (-not $KeepInstall) {
-        if (Test-Path $installLocation) {
-            if ($yesToAll -or $PSCmdlet.ShouldProcess(
-                "Uninstalling Link2Root from $installLocation",
-                "Uninstall Link2Root from $installLocation",
-                "Confirm`nAre you sure you want to perform this action?"
-            )) {
-                try {
-                    Remove-Item -Path $installLocation -Recurse @NO_RISK_PARAMS
-                    $success = $true
+if (-not $NoProgress)   { Enable-ProgressBars }
+else                    { Disable-ProgressBars }
+
+try {
+    [hashtable]$installTestArgs = @{
+        NoOutput = $true
+        NoProgress = $NoProgress
+        PassThru = $true
+        SkipInstallIntegrityCheck = $true
+        SkipModuleIntegrityCheck = $true
+        Any = $true
+        Internal = $true
+        Indentation = ($Indentation + 2)
+    }
+
+    Write-Verbose "$(Get-IndentString $Indentation)[>] Running Link2Root Uninstaller..."
+    Add-ProgressBar -Name "Uninstalling Link2Root" -DefaultPercentageChange 25 -InitialSecondsRemaining 3
+    Update-ProgressBar -Status "Check Current Installation Status"
+
+    Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Checking for Uninstallation Eligibility..."
+
+    if (-not $Install) {
+        if (-not (& "$PSScriptRoot\Test-Link2RootInstall.ps1" @installTestArgs)) {
+            Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Ineligible for Uninstallation"
+            Write-Verbose "$(Get-IndentString $Indentation)[-] Link2Root Uninstallation Aborted."
+            Update-ProgressBar -Status "No Uninstallation Required" -PercentageChange 100
+            
+            if (-not $NoOutput) {
+                _wc "Link2Root" -NoNewline
+                Write-Host " is " -NoNewline
+                Write-Host "Not Currently Installed!" -ForegroundColor DarkYellow
+            }
         
-                    if (-not $Silent) {
-                        _wcp -Success
-                        Write-Host "Successfully uninstalled " -NoNewline -ForegroundColor Green
+            if ($PassThru)  { return $false }
+            else            { return }
+        }
+    }
+    else {
+        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Internal Invocation"
+    }
+
+    Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] Eligible for Uninstallation"
+    Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Requesting User Confirmation to Proceed with Uninstallation..."
+    
+    if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root for $(Get-FullyQualifiedUsername)", "Confirm", [ref]$yesToAll, [ref]$noToAll)) {
+        if (-not $Force)    { Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] User Approved Confirmation." }
+        else                { Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] Confirmation Automatically Approved via -Force Flag." }
+
+        [string]$installLocation = & "$PSScriptRoot\Get-Link2RootInstall.ps1" -Internal:$Install
+
+        
+        # Uninstall the script in the current user's local appdata folder
+        Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Removing Installation Files..."
+        Update-ProgressBar -Status "Remove Install Files" -CurrentOperation "Check Uninstall Status" -PercentageChange 0
+        
+        if (-not $KeepInstall) {
+            if (Test-Path $installLocation) {
+                Write-Verbose "$(Get-IndentString ($Indentation + 2))[>] Requesting User Confirmation to Proceed with Uninstallation of Install Files..."
+
+                if ($yesToAll -or $PSCmdlet.ShouldProcess(
+                    "$(Get-IndentString ($Indentation + 3))[+] Confirmation APPROVED",
+                    "Uninstall Link2Root from $installLocation",
+                    "Confirm`nAre you sure you want to perform this action?"
+                )) {
+                    if ($yesToAll) {
+                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Confirmation Automatically Approved via Previous `"Yes to All`" Response"
+                    }
+                    elseif ($ConfirmPreference -in @("None", "High")) {
+                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Confirmation Automatically Approved due to Current ConfirmPreference Level ($ConfirmPreference)"
+                    }
+                    else {
+                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] User Approved Confirmation."
+                    }
+
+                    try {
+                        Update-ProgressBar -Status "Remove Install Files" -CurrentOperation "Remove Files" -PercentageChange 0
+                        Remove-Item -Path $installLocation -Recurse @NO_RISK_PARAMS
+                        
+                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Removed Installation Files from Location: $installLocation"
+                        Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] Installation Files were Successfully Removed"
+                        Update-ProgressBar -Status "Remove Install Files" -CurrentOperation "Operation Completed Successfully"
+                        $success = $true
+
+                        if (-not $NoOutput) {
+                            _wcp -Success
+                            Write-Host "Successfully uninstalled " -NoNewline -ForegroundColor Green
+                            _wc "Link2Root" -NoNewline
+                            Write-Host " from " -NoNewline
+                            _wp $installLocation
+                        }
+                    }
+                    catch {
+                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] Failed to Remove Installation Files"
+                        Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Installation Files were NOT Removed"
+                        Update-ProgressBar -Status "Remove Install Files" -CurrentOperation "Operation Failed"
+                        $failed = $true
+            
+                        if (-not $NoOutput) {
+                            _wcp -Failed
+                            Write-Host "Failed to uninstall " -NoNewline -ForegroundColor Red
+                            _wc "Link2Root" -NoNewline
+                            Write-Host " from " -NoNewline
+                            _wp $installLocation -NoNewline
+                            Write-Host "!"
+                            $_ | Format-Indentation -Indentation 2 | Write-Host -ForegroundColor Red
+                        }
+                    }
+                }
+                elseif (-not $WhatIfPreference) {
+                    Write-Verbose "$(Get-IndentString ($Indentation + 3))[-] Confirmation NOT Approved"
+                    Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] User Rejected Confirmation"
+                    Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Installation Files were NOT Modified"
+                    Update-ProgressBar -Status "Remove Install Files" -CurrentOperation "Operation Cancelled"
+
+                    if (-not $NoOutput) {
+                        _wcp
+                        Write-Host "Skipped uninstallation" -NoNewline -ForegroundColor DarkYellow
+                        Write-Host " of " -NoNewline
                         _wc "Link2Root" -NoNewline
                         Write-Host " from " -NoNewline
                         _wp $installLocation
                     }
                 }
-                catch {
-                    $failed = $true
-        
-                    if (-not $Silent) {
-                        _wcp -Failed
-                        Write-Host "Failed to uninstall " -NoNewline -ForegroundColor Red
-                        _wc "Link2Root" -NoNewline
-                        Write-Host " from " -NoNewline
-                        _wp $installLocation
-                        Write-Host "!"
-                        Write-Host ""
-                        Write-Host $_ -ForegroundColor Red
-                    }
+            }
+            else {
+                Write-Verbose "$(Get-IndentString ($Indentation + 2))[/] No Installation Files Found to Remove"
+                Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] Installation Files Removed Successfully"
+                Update-ProgressBar -Status "Remove Install Files" -CurrentOperation "No Action Required"
+
+                if (-not $NoOutput) {
+                    _wcp
+                    _wc "Link2Root" -NoNewline
+                    Write-Host " is " -NoNewline
+                    Write-Host "not currently installed" -NoNewline -ForegroundColor DarkYellow
+                    Write-Host " in " -NoNewline
+                    Write-Host $installLocation -ForegroundColor Cyan
                 }
             }
         }
         else {
-            if (-not $Silent) {
+            Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] -KeepInstall Flag Passed to Uninstallation Script"
+            Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Installation Files were NOT Modified"
+            Update-ProgressBar -Status "Remove Install Files" -CurrentOperation "Action Skipped"
+
+            if (-not $NoOutput) {
                 _wcp
+                Write-Host "Skipped uninstallation" -NoNewline -ForegroundColor DarkYellow
+                Write-Host " of " -NoNewline
                 _wc "Link2Root" -NoNewline
-                Write-Host " is " -NoNewline
-                Write-Host "not currently installed" -NoNewline -ForegroundColor DarkYellow
-                Write-Host " in " -NoNewline
-                Write-Host $installLocation -ForegroundColor Cyan
+                Write-Host " from " -NoNewline
+                _wp $installLocation
             }
         }
-    }
-    
-    # Uninstall the module in the current user's PowerShell Modules folder
-    if (-not $KeepModule) {
-        if (Test-Path $modulePath) {
-            if ($yesToAll -or $PSCmdlet.ShouldProcess(
-                "Uninstalling Link2Root PowerShell Module from $modulesLocation",
-                "Uninstall Link2Root PowerShell Module from $modulesLocation",
-                "Confirm`nAre you sure you want to perform this action?"
-            )) {
-                try {
-                    Remove-Item -Path $modulePath -Recurse @NO_RISK_PARAMS
-                    $success = $true
-                    
-                    if (-not $Silent) {
-                        _wcp -Success
-                        Write-Host "Successfully uninstalled" -NoNewline -ForegroundColor Green
-                        Write-Host " the " -NoNewline
-                        _wc "Link2Root PowerShell Module" -NoNewline
-                        Write-Host " from " -NoNewline
-                        _wp $modulePath
-                    }
-                }
-                catch {
-                    if ($_.ErrorDetails.Message -ilike "*Access to the path*is denied.") {
-                        if (-not $Silent) {
-                            Write-Warning "PowerShell does not have permission to modify $modulePath. This often caused by Anti-Virus Software or Windows Security's `"Controlled Folder Access`" option."
+        
 
-                            _wcp
-                            _wc "Link2Root PowerShell Module" -NoNewline
-                            Write-Host " is " -NoNewline
-                            Write-Host "Pending Manual Uninstallation" -NoNewline -ForegroundColor DarkYellow
-                            Write-Host " from " -NoNewline
-                            _wp $modulePath
-                        }
+        # Uninstall the module in the current user's PowerShell Modules folder
+        Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Removing PowerShell Module..."
+        Update-ProgressBar -Status "Remove PowerShell Module" -CurrentOperation "Check Uninstall Status" -PercentageChange 0
+        
+        if (-not $KeepModule) {
+            [string]$modulePath = & "$PSScriptRoot\Get-Link2RootInstall.ps1" -GetModulePath -Internal:$Install -Indentation ($Indentation + 2)
+            [string]$modulesLocation = Split-Path $modulePath -Parent
+            
+            if (Test-Path $modulePath) {
+                Write-Verbose "$(Get-IndentString ($Indentation + 2))[>] Requesting User Confirmation to Proceed with Uninstallation of PowerShell Module..."
+
+                if ($yesToAll -or $PSCmdlet.ShouldProcess(
+                    "$(Get-IndentString ($Indentation + 3))[+] Confirmation APPROVED",
+                    "Uninstall Link2Root PowerShell Module from $modulesLocation",
+                    "Confirm`nAre you sure you want to perform this action?"
+                )) {
+                    if ($yesToAll) {
+                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Confirmation Automatically Approved via Previous `"Yes to All`" Response"
+                    }
+                    elseif ($ConfirmPreference -in @("None", "High")) {
+                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Confirmation Automatically Approved due to Current ConfirmPreference Level ($ConfirmPreference)"
                     }
                     else {
-                        $failed = $true
-            
-                        if (-not $Silent) {
-                            _wcp -Failed
-                            Write-Host "Failed to uninstall" -NoNewline -ForegroundColor Red
+                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] User Approved Confirmation."
+                    }
+
+                    try {
+                        Update-ProgressBar -Status "Remove PowerShell Module Files" -CurrentOperation "Remove Files" -PercentageChange 0
+                        Remove-Item -Path $modulePath -Recurse @NO_RISK_PARAMS
+
+                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Removed PowerShell Module from Location: $modulePath"
+                        Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] PowerShell Module were Successfully Removed"
+                        Update-ProgressBar -Status "Remove PowerShell Module Files" -CurrentOperation "Operation Completed Successfully"
+                        $success = $true
+                        
+                        if (-not $NoOutput) {
+                            _wcp -Success
+                            Write-Host "Successfully uninstalled" -NoNewline -ForegroundColor Green
                             Write-Host " the " -NoNewline
                             _wc "Link2Root PowerShell Module" -NoNewline
                             Write-Host " from " -NoNewline
                             _wp $modulePath
-                            Write-Host "!"
-                            Write-Host ""
-                            Write-Host $_ -ForegroundColor Red
                         }
                     }
+                    catch {
+                        if ($_.ErrorDetails.Message -ilike "*Access to the path*is denied.") {
+                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[/] Insufficient Access to Remove PowerShell Module"
+                            Write-Verbose "$(Get-IndentString ($Indentation + 1))[/] PowerShell Module Pending Manual Uninstallation"
+                            Update-ProgressBar -Status "Remove PowerShell Module" -CurrentOperation "Operation Completed with Warnings"
+
+                            if (-not $NoOutput) {
+                                Write-Warning "PowerShell does not have permission to modify $modulePath. This often caused by Anti-Virus Software or Windows Security's `"Controlled Folder Access`" option."
+    
+                                _wcp
+                                _wc "Link2Root PowerShell Module" -NoNewline
+                                Write-Host " is " -NoNewline
+                                Write-Host "Pending Manual Uninstallation" -NoNewline -ForegroundColor DarkYellow
+                                Write-Host " from " -NoNewline
+                                _wp $modulePath
+                            }
+                        }
+                        else {
+                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] Failed to Remove PowerShell Module"
+                            Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] PowerShell Module was NOT Removed"
+                            Update-ProgressBar -Status "Remove PowerShell Module" -CurrentOperation "Operation Failed"
+                            $failed = $true
+                
+                            if (-not $NoOutput) {
+                                _wcp -Failed
+                                Write-Host "Failed to uninstall" -NoNewline -ForegroundColor Red
+                                Write-Host " the " -NoNewline
+                                _wc "Link2Root PowerShell Module" -NoNewline
+                                Write-Host " from " -NoNewline
+                                _wp $modulePath -NoNewline
+                                Write-Host "!"
+                                $_ | Format-Indentation -Indentation 2 | Write-Host -ForegroundColor Red
+                            }
+                        }
+                    }
+                }
+                elseif (-not $WhatIfPreference) {
+                    Write-Verbose "$(Get-IndentString ($Indentation + 3))[-] Confirmation NOT Approved"
+                    Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] User Rejected Confirmation"
+                    Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] PowerShell Module was NOT Modified"
+                    Update-ProgressBar -Status "Remove PowerShell Module" -CurrentOperation "Operation Cancelled"
+
+                    if (-not $NoOutput) {
+                        _wcp
+                        Write-Host "Skipped uninstallation" -NoNewline -ForegroundColor DarkYellow
+                        Write-Host " of the " -NoNewline
+                        _wc "Link2Root PowerShell Module" -NoNewline
+                        Write-Host " from " -NoNewline
+                        _wp $installLocation
+                    }
+                }
+            }
+            else {
+                Write-Verbose "$(Get-IndentString ($Indentation + 2))[/] No PowerShell Module Files Found to Remove"
+                Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] PowerShell Module Removed Successfully"
+                Update-ProgressBar -Status "Remove PowerShell Module" -CurrentOperation "No Action Required"
+
+                if (-not $NoOutput) {
+                    _wcp
+                    Write-Host "The " -NoNewline
+                    _wc "Link2Root PowerShell Module" -NoNewline
+                    Write-Host " is " -NoNewline
+                    Write-Host "not currently installed" -NoNewline -ForegroundColor DarkYellow
+                    Write-Host " in " -NoNewline
+                    _wp $modulePath
                 }
             }
         }
         else {
-            if (-not $Silent) {
+            Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] -KeepModule Flag Passed to Uninstallation Script"
+            Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] PowerShell Module was NOT Modified"
+            Update-ProgressBar -Status "Remove PowerShell Module" -CurrentOperation "Action Skipped"
+
+            if (-not $NoOutput) {
                 _wcp
-                Write-Host "The " -NoNewline
+                Write-Host "Skipped uninstallation" -NoNewline -ForegroundColor DarkYellow
+                Write-Host " of the " -NoNewline
                 _wc "Link2Root PowerShell Module" -NoNewline
-                Write-Host " is " -NoNewline
-                Write-Host "not currently installed" -NoNewline -ForegroundColor DarkYellow
-                Write-Host " in " -NoNewline
-                _wp $modulePath
+                Write-Host " from " -NoNewline
+                _wp $installLocation
             }
         }
-    }
+    
 
-    # Remove the installation directory from the Current User's PATH
-    if (-not $KeepPATH) {
-        [string[]]$userPATH = Get-UserPATH
-        [string]$username = Get-FullyQualifiedUsername
+        # Remove the installation directory from the Current User's PATH
+        Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Updating User PATH..."
+        Update-ProgressBar -Status "Update User PATH" -CurrentOperation "Check Uninstall Status" -PercentageChange 0
+        
+        if (-not $KeepPATH) {
+            [string[]]$userPATH = Get-UserPATH
+            [string]$username = Get-FullyQualifiedUsername
+    
+            if (Test-UserPATH -Entry $installLocation -PATH $userPATH) {
+                Write-Verbose "$(Get-IndentString ($Indentation + 2))[>] Requesting User Confirmation to Proceed with User PATH Update..."
+                
+                if ($yesToAll -or $PSCmdlet.ShouldProcess(
+                    "$(Get-IndentString ($Indentation + 3))[+] Confirmation APPROVED",
+                    "Remove $installLocation from $username's PATH",
+                    "Confirm`nAre you sure you want to perform this action?"
+                )) {
+                    if ($yesToAll) {
+                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Confirmation Automatically Approved via Previous `"Yes to All`" Response"
+                    }
+                    elseif ($ConfirmPreference -in @("None", "High")) {
+                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Confirmation Automatically Approved due to Current ConfirmPreference Level ($ConfirmPreference)"
+                    }
+                    else {
+                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] User Approved Confirmation."
+                    }
 
-        if (Test-UserPATH -Entry $installLocation -PATH $userPATH) {
-            if ($yesToAll -or $PSCmdlet.ShouldProcess(
-                "Removing $installLocation from $username's PATH",
-                "Remove $installLocation from $username's PATH",
-                "Confirm`nAre you sure you want to perform this action?"
-            )) {
-                try {
-                    $userPATH.Where({
+                    try {
+                        Update-ProgressBar -Status "Update User PATH" -CurrentOperation "Remove PATH Entry" -PercentageChange 0
+                        $userPATH.Where({
+    
+                            if ($_ -ieq $installLocation) {
+                                Write-Verbose "$(Get-IndentString ($Indentation + 3))[+] Removed Entry: $_"
+                                return $false
+                            }
+    
+                            return $true
+                        
+                        }) | Set-UserPATH -Verbose:$VerbosePreference -Indentation ($Indentation + 3);
 
-                        if ($_ -ieq $installLocation) {
-                            Write-Verbose "Removing Entry from $username's PATH: $_"
-                            return $false
+                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Removed Matching Entries from User PATH: $installLocation"
+                        Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] User PATH was Successfully Modified"
+                        Update-ProgressBar -Status "Update User PATH" -CurrentOperation "Operation Completed Successfully"
+                        $success = $true
+                        
+                        if (-not $NoOutput) {    
+                            _wcp -Success
+                            Write-Host "Successfully removed " -NoNewline -ForegroundColor Green
+                            _wc "Link2Root" -NoNewline
+                            Write-Host " from " -NoNewline
+                            _wp "$username's PATH"
                         }
+                    }
+                    catch {
+                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] Failed to Update User PATH"
+                        Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] User PATH was NOT Modified"
+                        Update-ProgressBar -Status "Update User PATH" -CurrentOperation "Operation Failed"
+                        $failed = $true
+                        
+                        if (-not $NoOutput) {
+                            _wcp -Failed
+                            Write-Host "Failed to remove " -NoNewline -ForegroundColor Red
+                            _wc "Link2Root" -NoNewline
+                            Write-Host " from " -NoNewline
+                            _wp "$username's PATH" -NoNewline
+                            Write-Host "!"
+                            $_ | Format-Indentation -Indentation 2 | Write-Host -ForegroundColor Red
+                        }
+                    }
+                }
+                elseif (-not $WhatIfPreference) {
+                    Write-Verbose "$(Get-IndentString ($Indentation + 3))[-] Confirmation NOT Approved"
+                    Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] User Rejected Confirmation"
+                    Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] User PATH was NOT Modified"
+                    Update-ProgressBar -Status "Update User PATH" -CurrentOperation "Operation Cancelled"
 
-                        return $true
-                    
-                    }) | Set-UserPATH -Verbose:$VerbosePreference;
-                    $success = $true
-                    
-                    if (-not $Silent) {
-                        _wcp -Success
-                        Write-Host "Successfully removed " -NoNewline -ForegroundColor Green
+                    if (-not $NoOutput) {
+                        _wcp
+                        Write-Host "Skipped removal" -NoNewline -ForegroundColor DarkYellow
+                        Write-Host " of " -NoNewline
                         _wc "Link2Root" -NoNewline
                         Write-Host " from " -NoNewline
                         _wp "$username's PATH"
                     }
                 }
-                catch {
-                    $failed = $true
-        
-                    if (-not $Silent) {
-                        _wcp -Failed
-                        Write-Host "Failed to remove " -NoNewline -ForegroundColor Red
-                        _wc "Link2Root" -NoNewline
-                        Write-Host " from " -NoNewline
-                        _wp "$username's PATH" -NoNewline
-                        Write-Host "!"
-                        Write-Host ""
-                        Write-Host $_ -ForegroundColor Red
-                    }
+            }
+            else {
+                Write-Verbose "$(Get-IndentString ($Indentation + 2))[/] No PATH Entries Found to Remove"
+                Write-Verbose "$(Get-IndentString ($Indentation + 1))[/] User PATH was NOT Modified"
+                Update-ProgressBar -Status "Remove PATH Entry" -CurrentOperation "No Action Required"
+
+                if (-not $NoOutput) {
+                    _wcp
+                    _wc "Link2Root" -NoNewline
+                    Write-Host " is " -NoNewline
+                    Write-Host "not currently present" -NoNewline -ForegroundColor DarkYellow
+                    Write-Host " in " -NoNewline
+                    _wp "$username's PATH"
                 }
             }
         }
         else {
-            if (-not $Silent) {
+            Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] -KeepPATH Flag Passed to Uninstallation Script"
+            Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] User PATH was NOT Modified"
+            Update-ProgressBar -Status "Update User PATH" -CurrentOperation "Action Skipped"
+
+            if (-not $NoOutput) {
                 _wcp
+                Write-Host "Skipped removal" -NoNewline -ForegroundColor DarkYellow
+                Write-Host " of " -NoNewline
                 _wc "Link2Root" -NoNewline
-                Write-Host " is " -NoNewline
-                Write-Host "not currently present" -NoNewline -ForegroundColor DarkYellow
-                Write-Host " in " -NoNewline
+                Write-Host " from " -NoNewline
                 _wp "$username's PATH"
             }
         }
-    }
-}
 
-if (-not $Silent) {
-    Write-Host ""
-    
-    if ($success -and -not $failed) {
-        Write-Host "Successfully uninstalled " -NoNewline -ForegroundColor Green
-        _wc "Link2Root" -NoNewline
-        Write-Host "!" -ForegroundColor Green
-    }
-    elseif ($success) {
-        Write-Host "Only some components of " -NoNewline -ForegroundColor DarkYellow
-        _wc "Link2Root" -NoNewline
-        Write-Host " were successfully uninstalled." -ForegroundColor DarkYellow
-    }
-    elseif (-not $failed) {
-        Write-Host "Nothing for " -NoNewline -ForegroundColor Yellow
-        _wc "Link2Root" -NoNewline
-        Write-Host " was uninstalled." -ForegroundColor Yellow
+
+        if (-not $success -and -not $failed)    { Write-Verbose "$(Get-IndentString $Indentation)[/] No Changes Made by the Link2Root Uninstaller" }
+        else                                    { Write-Verbose "$(Get-IndentString $Indentation)[+] Link2Root Uninstaller Completed Successfully" }
     }
     else {
-        Write-Host "Failed to uninstall " -NoNewline -ForegroundColor Red
-        _wc "Link2Root" -NoNewline
-        Write-Host "!" -ForegroundColor Red
+        Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] User Rejected Confirmation."
+        Write-Verbose "$(Get-IndentString $Indentation)[-] Link2Root Uninstallation Aborted."
+    }
+
+    Update-ProgressBar -Status "Uninstallation Complete" -PercentageChange 100
+    
+    if (-not $NoOutput) {
+        # Write-Host ""
+        
+        if ($success -and -not $failed) {
+            Write-Host "Successfully uninstalled " -NoNewline -ForegroundColor Green
+            _wc "Link2Root" -NoNewline
+            Write-Host "!" -ForegroundColor Green
+        }
+        elseif ($success) {
+            Write-Host "Only some components of " -NoNewline -ForegroundColor DarkYellow
+            _wc "Link2Root" -NoNewline
+            Write-Host " were successfully uninstalled." -ForegroundColor DarkYellow
+        }
+        elseif (-not $failed) {
+            Write-Host "Nothing for " -NoNewline -ForegroundColor Yellow
+            _wc "Link2Root" -NoNewline
+            Write-Host " was uninstalled." -ForegroundColor Yellow
+        }
+        else {
+            Write-Host "Failed to uninstall " -NoNewline -ForegroundColor Red
+            _wc "Link2Root" -NoNewline
+            Write-Host "!" -ForegroundColor Red
+        }
+        
+        if ($success) {
+            Write-EndRestartNotice
+        }
     }
     
-    if ($success) {
-        Write-EndRestartNotice
+    if ($PassThru) {
+        return $success -and -not $failed
     }
 }
-
-if ($PassThru) {
-    return $success -and -not $failed
+catch {
+    Write-Verbose "$(Get-IndentString $Indentation)[-] Link2Root Uninstaller Failed"
+    Update-ProgressBar -Status "Uninstallation Failed" -PercentageChange 100
+    throw $_
+}
+finally {
+    Remove-ProgressBar
 }

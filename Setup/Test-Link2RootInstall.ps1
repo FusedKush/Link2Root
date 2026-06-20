@@ -32,6 +32,7 @@
     .\Test-Link2RootInstall.ps1 -TestInstall -TestPATH
     False
 #>
+[CmdletBinding(DefaultParameterSetName = "WithOutput")]
 param(
     <#
         Indicates that the existence of the
@@ -78,44 +79,106 @@ param(
     #>
     [switch]$TestPATH,
 
+    [switch]$Any,
+
+    [Parameter(ParameterSetName = "WithoutOutputOrProgress", Mandatory)]
     [switch]$Silent,
+    
+    [Parameter(ParameterSetName = "WithoutOutput", Mandatory)]
+    [switch]$NoOutput,
+
+    [Alias("HideProgress")]
+    [Parameter(ParameterSetName = "WithOutput")]
+    [Parameter(ParameterSetName = "WithoutOutput")]
+    [switch]$NoProgress,
+
+    [Parameter(ParameterSetName = "WithOutput")]
+    [Parameter(ParameterSetName = "WithoutOutput", Mandatory)]
+    [Parameter(ParameterSetName = "WithoutOutputOrProgress", Mandatory)]
     [switch]$PassThru,
 
     [Parameter(DontShow)]
-    [switch]$Internal
+    [switch]$Internal,
+
+    <#
+        An internal parameter used to specify the indentation
+        level to use for output logging.
+    #>
+    [Parameter(DontShow)]
+    [int]$Indentation = 0
 )
+
+
+function Update-TestResult {
+    param(
+        [Parameter(ParameterSetName = "SuccessfulResult")]
+        [switch]$Success,
+
+        [Parameter(ParameterSetName = "FailureResult")]
+        [switch]$Failure
+    )
+
+    if ($Failure -and -not $Any) {
+        $script:result = $false
+    }
+    elseif ($Success -and $Any) {
+        $script:result = $true
+    }
+}
 
 
 Import-Module "$PSScriptRoot\Utils.psm1" -Verbose:($VerbosePreference -and -not $Internal)
 
-[bool]$result = $true
+[bool]$result = !$Any
 [string]$installLocation = & "$PSScriptRoot\Get-Link2RootInstall.ps1"
-
-
-Write-Verbose "Testing Current Installation Status of Link2Root"
 
 if (-not ($TestInstall -or $TestModule -or $TestPATH)) {
     $TestInstall = $TestModule = $TestPATH = $true
 }
+if ($Silent) {
+    $NoOutput = $true
+    $NoProgress = $true
+}
+
+if (-not $NoProgress)   { Enable-ProgressBars }
+else                    { Disable-ProgressBars }
+
+Write-Verbose "$(Get-IndentString $Indentation)[>] Checking Current Installation Status of Link2Root..."
+Add-ProgressBar -Name "Checking Link2Root Installation Status" -DefaultPercentageChange 40 -InitialSecondsRemaining 3
+Update-ProgressBar -Status "Check Install Status" -CurrentOperation "Checking Status..." -PercentageChange 0
 
 if ($TestInstall) {
+    Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Checking Current Install Status..."
+
     if (Test-Path $installLocation -Type Container) {
-        [hashtable]$integrityCheckArgs = @{
+        [hashtable]$mainCheckArgs = @{
             Source = "$PSScriptRoot/../"
             Install = $installLocation
+            Exclude = "*[/\]Setup", "*[/\]Installation"
+            Verbose = $VerbosePreference
+            Indentation = ($Indentation + 2)
+        }
+        [hashtable]$setupCheckArgs = @{
+            Source = "$PSScriptRoot/../Setup"
+            Install = "$installLocation/Installation"
             Exclude = $SETUP_FOLDER_IGNORED_FILES
             Verbose = $VerbosePreference
+            Indentation = ($Indentation + 2)
         }
         
-        Write-Verbose "Link2Root IS installed in $installLocation"
+        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Link2Root IS installed in $installLocation"
         
         if (-not $SkipInstallIntegrityCheck -and (Split-Path $PSScriptRoot -Parent) -ieq $installLocation) {
-            Write-Verbose "Skipping Link2Root Installation Integrity Check because no reference files are available."
+            Write-Verbose "$(Get-IndentString ($Indentation + 2))[/] Skipping Link2Root Installation Integrity Check because no reference files are available."
             $SkipInstallIntegrityCheck = $true
         }
 
-        if ($SkipInstallIntegrityCheck -or (Test-InstallIntegrity @integrityCheckArgs)) {    
-            if (-not $Silent) {
+        if ($SkipInstallIntegrityCheck -or ((Test-InstallIntegrity @mainCheckArgs) -and (Test-InstallIntegrity @setupCheckArgs))) {
+            Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] Current Install Status: INSTALLED"
+            Update-ProgressBar -Status "Check Install Status" -CurrentOperation "Component Installed!"
+            Update-TestResult -Success
+            
+            if (-not $NoOutput) {
                 _wcp -Success
                 _wc "Link2Root" -NoNewline
                 Write-Host " Installed" -NoNewline -ForegroundColor Green
@@ -124,53 +187,72 @@ if ($TestInstall) {
             }
         }
         else {
-            Write-Verbose "Integrity Check Failed for $installLocation"
+            Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] Integrity Check Failed for $installLocation"
+            Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Current Install Status: NOT INSTALLED"
+            Update-ProgressBar -Status "Check Install Status" -CurrentOperation "Component Damaged!"
+            Update-TestResult -Failure
 
-            if (-not $Silent) {
+            if (-not $NoOutput) {
                 _wcp -Failed
                 _wc "Link2Root" -NoNewline
                 Write-Host " has " -NoNewline
                 Write-Host "Missing or Damaged Files" -NoNewline -ForegroundColor Red
                 Write-Host " in " -NoNewline
                 _wp $installLocation
-                $result = $false
             }
+
         }
     }
     else {
-        Write-Verbose "Link2Root is NOT installed in $installLocation"
+        Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] Link2Root is NOT installed in $installLocation"
+        Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Current Install Status: NOT INSTALLED"
+        Update-ProgressBar -Status "Check Install Status" -CurrentOperation "Component Missing!"
+        Update-TestResult -Failure
         
-        if (-not $Silent) {
+        if (-not $NoOutput) {
             _wcp -Failed
             _wc "Link2Root" -NoNewline
             Write-Host " NOT Installed" -NoNewline -ForegroundColor Red
             Write-Host " in " -NoNewline
             _wp $installLocation
-            $result = $false
         }
     }
 }
+else {
+    Write-Verbose "$(Get-IndentString ($Indentation + 1))[/] Skipping Current Install Status Check"
+    Update-ProgressBar -Status "Check Install Status" -CurrentOperation "Component Test Skipped"
+}
+
+
+Update-ProgressBar -Status "Check PowerShell Module Status" -CurrentOperation "Checking Status..." -PercentageChange 0
 
 if ($TestModule) {
-    [string]$modulePath = (& "$PSScriptRoot\Get-Link2RootInstall.ps1" -GetModulePath -Internal:$Internal)
+    Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Checking Current PowerShell Module Status..."
     
+    [string]$modulePath = (& "$PSScriptRoot\Get-Link2RootInstall.ps1" -GetModulePath -Internal:$Internal -Indentation ($Indentation + 2))
+
     if (Test-Path $modulePath -Type Container) {
         [hashtable]$integrityCheckArgs = @{
             Source = "$PSScriptRoot/../"
             Install = $modulePath
             Filter = "Link2Root.ps*1"
             Verbose = $VerbosePreference
+            Indentation = ($Indentation + 2)
         }
 
-        Write-Verbose "The Link2Root PowerShell Module IS installed in $modulePath"
+        Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] The Link2Root PowerShell Module IS installed in $modulePath"
 
         if (-not $SkipModuleIntegrityCheck -and (Split-Path $PSScriptRoot -Parent) -ieq $installLocation) {
-            Write-Verbose "Skipping Link2Root PowerShell Module Integrity Check because no reference files are available."
+            Write-Verbose "$(Get-IndentString ($Indentation + 2))[/] Skipping Link2Root PowerShell Module Integrity Check because no reference files are available."
             $SkipModuleIntegrityCheck = $true
         }
 
         if ($SkipModuleIntegrityCheck -or (Test-InstallIntegrity @integrityCheckArgs)) {
-            if (-not $Silent) {
+            Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] Current PowerShell Module Status: INSTALLED"
+            Update-ProgressBar -Status "Check PowerShell Module Status" -CurrentOperation "Component Installed!" -PercentageChange 20
+            Update-TestResult -Success
+            
+            if (-not $NoOutput) {
                 _wcp -Success
                 _wc "Link2Root PowerShell Module" -NoNewline
                 Write-Host " Installed" -NoNewline -ForegroundColor Green
@@ -179,40 +261,55 @@ if ($TestModule) {
             }
         }
         else {
-            Write-Verbose "Integrity Check Failed for $modulePath"
-
-            if (-not $Silent) {
+            Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Current PowerShell Module Status: NOT INSTALLED"
+            Update-ProgressBar -Status "Check PowerShell Module Status" -CurrentOperation "Component Damaged!" -PercentageChange 20
+            Update-TestResult -Failure
+            
+            if (-not $NoOutput) {
                 _wcp -Failed
                 _wc "Link2Root PowerShell Module" -NoNewline
                 Write-Host " has " -NoNewline
                 Write-Host "Missing or Damaged Files" -NoNewline -ForegroundColor Red
                 Write-Host " in " -NoNewline
                 _wp $installLocation
-                $result = $false
             }
         }
     }
     else {
-        Write-Verbose "The Link2Root PowerShell Module is NOT installed in $modulePath"
+        Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] The Link2Root PowerShell Module is NOT installed in $modulePath"
+        Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Current PowerShell Module Status: NOT INSTALLED"
+        Update-ProgressBar -Status "Check PowerShell Module Status" -CurrentOperation "Component Missing!" -PercentageChange 20
+        Update-TestResult -Failure
 
-        if (-not $Silent) {
+        if (-not $NoOutput) {
             _wcp -Failed
             _wc "Link2Root PowerShell Module" -NoNewline
             Write-Host " NOT Installed" -NoNewline -ForegroundColor Red
             Write-Host " in " -NoNewline
             _wp $modulePath
-            $result = $false
         }
     }
 }
+else {
+    Write-Verbose "$(Get-IndentString ($Indentation + 1))[/] Skipping Current PowerShell Module Status Check"
+    Update-ProgressBar -Status "Check PowerShell Module Status" -CurrentOperation "Component Test Skipped" -PercentageChange 20
+}
+
+
+Update-ProgressBar -Status "Check PATH Status" -CurrentOperation "Checking Status..." -PercentageChange 0
 
 if ($TestPATH) {
     [string]$username = Get-FullyQualifiedUsername
-    
-    if (Test-UserPATH $installLocation) {
-        Write-Verbose "Entry $installLocation FOUND in $username's PATH"
 
-        if (-not $Silent) {
+    Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Checking Current PATH..."
+    
+    if (Test-UserPATH $installLocation -Indentation ($Indentation + 2) -Verbose:$VerbosePreference) {
+        # Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Entry $installLocation FOUND in $username's PATH"
+        Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] Current PATH Status: FOUND"
+        Update-ProgressBar -Status "Check PATH Status" -CurrentOperation "Component Installed!"
+        Update-TestResult -Success
+        
+        if (-not $NoOutput) {
             _wcp -Success
             _wc "Link2Root" -NoNewline
             Write-Host " Added" -NoNewline -ForegroundColor Green
@@ -221,28 +318,36 @@ if ($TestPATH) {
         }
     }
     else {
-        Write-Verbose "Entry $installLocation NOT found in $username's PATH"
-
-        if (-not $Silent) {
+        Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] Entry $installLocation NOT found in $username's PATH"
+        Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Current PATH Status: NOT FOUND"
+        Update-ProgressBar -Status "Check Install Status" -CurrentOperation "Component Missing!"
+        Update-TestResult -Failure
+        
+        if (-not $NoOutput) {
             _wcp -Failed
             _wc "Link2Root" -NoNewline
             Write-Host " NOT Added" -NoNewline -ForegroundColor Red
             Write-Host " to " -NoNewline
             _wp "$username's PATH"
         }
-        $result = $false
     }
 }
+else {
+    Write-Verbose "$(Get-IndentString ($Indentation + 1))[/] Skipping Current PATH Check"
+    Update-ProgressBar -Status "Check PATH Status" -CurrentOperation "Component Test Skipped"
+}
 
+
+Remove-ProgressBar
 
 if ($result) {
-    Write-Verbose "Link2Root IS considered to be installed"
+    Write-Verbose "$(Get-IndentString $Indentation)[+] Link2Root IS considered to be installed"
 }
 else {
-    Write-Verbose "Link2Root is NOT considered to be installed"
+    Write-Verbose "$(Get-IndentString $Indentation)[-] Link2Root is NOT considered to be installed"
 }
 
-if (-not $Silent) {
+if (-not $NoOutput) {
     _wc "Link2Root" -NoNewline
     Write-Host " is " -NoNewline
 

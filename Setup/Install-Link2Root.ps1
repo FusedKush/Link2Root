@@ -91,6 +91,24 @@ param(
     [switch]$Force,
     
     <#
+        Suppress all non-error output.
+
+        By default and when this switch is omitted, information will
+        be output to the host indicating the progress and status
+        of the installation and the individual components for Link2Root.
+    #>
+    [Parameter(ParameterSetName = "WithoutOutputOrProgress", Mandatory)]
+    [switch]$Silent,
+    
+    [Parameter(ParameterSetName = "WithoutOutput", Mandatory)]
+    [switch]$NoOutput,
+
+    [Alias("HideProgress")]
+    [Parameter(ParameterSetName = "WithOutput")]
+    [Parameter(ParameterSetName = "WithoutOutput")]
+    [switch]$NoProgress,
+
+    <#
         Indicates that this function should return a boolean value
         indicating whether or not the installation was successful.
 
@@ -98,15 +116,6 @@ param(
         does not generate any output.
     #>
     [switch]$PassThru,
-    
-    <#
-        Suppress all non-error output.
-
-        By default and when this switch is omitted, information will
-        be output to the host indicating the progress and status
-        of the installation and the individual components for Link2Root.
-    #>
-    [switch]$Silent,
 
     [switch]$NoRollBack
 )
@@ -133,7 +142,7 @@ function New-TemporaryFolder {
     $tempFolder = Join-Path $tempPath $name
 
     New-Item -Path $tempFolder -ItemType Directory @NO_RISK_PARAMS | Out-Null
-    Write-Verbose "Created Temporary Directory '$name' in $tempPath"
+    Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Created Temporary Directory: $name"
     return $tempFolder
 
 }
@@ -148,7 +157,9 @@ function New-InstallDirectory {
         [Parameter(Mandatory, Position = 2)]
         [string]$Name,
 
-        [switch]$PassThru
+        [switch]$PassThru,
+
+        [int]$InnerIndentation = 0
     )
 
     [hashtable]$newItemArgs = @{
@@ -157,10 +168,12 @@ function New-InstallDirectory {
         Name = $Name
     }
 
-    Write-Verbose "Creating Directory '$Name' in $(Resolve-Path $Path)"
     New-Item @newItemArgs @NO_RISK_PARAMS | Out-Null
-
-    if (-not (Test-Path "$Path\$Name")) {
+    
+    if (Test-Path "$Path\$Name") {
+        Write-Verbose "$(Get-IndentString ($Indentation + $InnerIndentation + 3))[+] New Directory: $(Join-Path $Path $Name)"
+    }
+    else {
         throw "Failed to Create Directory '$Name' in $(Resolve-Path $Path)"
     }
 
@@ -186,7 +199,9 @@ function Copy-ToTemporaryFolder {
 
         [string]$Filter,
         [string[]]$Include,
-        [string[]]$Exclude
+        [string[]]$Exclude,
+
+        [int]$InnerIndentation = 0
     )
 
     begin {
@@ -200,70 +215,100 @@ function Copy-ToTemporaryFolder {
     }
 
     end {
-        Write-Verbose "Resolved the following patterns..."
+        Write-Verbose "$(Get-IndentString ($Indentation + $InnerIndentation + 3))[>] Copying Files to $Destination..."
+        Write-Verbose "$(Get-IndentString ($Indentation + $InnerIndentation + 4))[>] File Patterns:"
 
         foreach ($currentPath in $allPaths) {
-            Write-Verbose "  $currentPath"
+            Write-Verbose "$(Get-IndentString ($Indentation + $InnerIndentation + 5))[#] $currentPath"
         }
 
         [string[]]$resolvedPaths = Get-Item $allPaths -Filter $Filter
 
-        Write-Verbose "...to the following filesystem paths:"
+        Write-Verbose "$(Get-IndentString ($Indentation + $InnerIndentation + 4))[>] Matched Files:"
 
         foreach ($currentPath in $resolvedPaths) {
-            Write-Verbose "  $currentPath"
+            Write-Verbose "$(Get-IndentString ($Indentation + $InnerIndentation + 5))[+] $currentPath"
         }
 
-        foreach ($resolvedPath in $resolvedPaths) {
-            if (Test-Path $resolvedPath -PathType Container) {
-                [string]$newDestination = $Destination
+        Write-Verbose "$(Get-IndentString ($Indentation + $InnerIndentation + 4))[>] Copying Files..."
+        Add-ProgressBar -Name "Copying Files" -DefaultPercentageChange (100 / $resolvedPaths.Count)
 
-                if ($Name.Trim() -ne "") {
-                    $newDestination += "\$Name"
-                }
-                else {
-                    $newDestination += "\$(Split-Path $resolvedPath -Leaf)"
-                }
-
-                if (-not (Test-Path $newDestination)) {
-                    $newDestination = (
-                        New-InstallDirectory `
-                            -Path (Split-Path $newDestination -Parent) `
-                            -Name (Split-Path $newDestination -Leaf) `
-                            -PassThru
-                    )
-                }
-                
-                Copy-ToTemporaryFolder `
-                    -Path (Get-ChildItem $resolvedPath -Filter $Filter).FullName `
-                    -Destination $newDestination `
-                    -Filter $Filter `
-                    -Include $Include `
-                    -Exclude $Exclude
-            }
-            else {
-                if (Test-FilePattern $resolvedPath -Filter $Filter -Include $Include -Exclude $Exclude -Verbose:$VerbosePreference) {
+        try {
+            foreach ($resolvedPath in $resolvedPaths) {
+                if (Test-Path $resolvedPath -PathType Container) {
                     [string]$newDestination = $Destination
-
+    
+                    Update-ProgressBar -Status $resolvedPath -CurrentOperation "Copy Directory" -PercentageChange 0
+    
                     if ($Name.Trim() -ne "") {
                         $newDestination += "\$Name"
                     }
+                    else {
+                        $newDestination += "\$(Split-Path $resolvedPath -Leaf)"
+                    }
+    
+                    if (-not (Test-Path $newDestination)) {
+                        $newDestination = (
+                            New-InstallDirectory `
+                                -Path (Split-Path $newDestination -Parent) `
+                                -Name (Split-Path $newDestination -Leaf) `
+                                -PassThru `
+                                -InnerIndentation $InnerIndentation
+                        )
+                    }
                     
-                    Write-Verbose "Copying File to Temporary Directory:"
-                    Write-Verbose "  File: $resolvedPath"
-                    Write-Verbose "  Destination: $Destination"
-
-                    if ($Name.Trim() -ne "") {
-                        Write-Verbose "  New Name: $Name"
+                    Write-Verbose "$(Get-IndentString ($Indentation + $InnerIndentation + 5))[>] Copying Directory: $resolvedPath"
+                    Copy-ToTemporaryFolder `
+                        -Path (Get-ChildItem $resolvedPath -Filter $Filter).FullName `
+                        -Destination $newDestination `
+                        -Filter $Filter `
+                        -Include $Include `
+                        -Exclude $Exclude `
+                        -InnerIndentation ($InnerIndentation + 3)
+                    Write-Verbose "$(Get-IndentString ($Indentation + $InnerIndentation + 5))[+] Copied Directory: $resolvedPath"
+                    Update-ProgressBar -Status $resolvedPath -CurrentOperation "Directory Copied"
+                }
+                else {
+                    $filePatternTestArgs = @{
+                        Path = $resolvedPath
+                        Filter = $Filter
+                        Include = $Include
+                        Exclude = $Exclude
+                        Verbose = $VerbosePreference
+                        Indentation = ($Indentation + $InnerIndentation + 5)
                     }
 
-                    Copy-Item -Path $resolvedPath -Destination $newDestination @NO_RISK_PARAMS | Out-Null
-                
-                    if (-not (Test-Path $Destination)) {
-                        throw "Failed to Copy $resolvedPath to $newDestination"
+                    if (Test-FilePattern @filePatternTestArgs) {
+                        [string]$newDestination = $Destination
+    
+                        Update-ProgressBar -Status $resolvedPath -CurrentOperation "Copy File" -PercentageChange 0
+    
+                        if ($Name.Trim() -ne "") {
+                            $newDestination += "\$Name"
+                            Write-Verbose "  New Name: $Name"
+                        }
+    
+                        Copy-Item -Path $resolvedPath -Destination $newDestination @NO_RISK_PARAMS | Out-Null
+                        Write-Verbose "$(Get-IndentString ($Indentation + $InnerIndentation + 5))[+] Copied File: $resolvedPath"
+                        Update-ProgressBar -Status $resolvedPath -CurrentOperation "File Copied"
+    
+                        if (-not (Test-Path $Destination)) {
+                            Write-Verbose "$(Get-IndentString -Indentation 2)[-] File: $resolvedPath"
+                            throw "Failed to Copy $resolvedPath to $Destination"
+                        }
                     }
                 }
+    
             }
+
+            Write-Verbose "$(Get-IndentString ($Indentation + $InnerIndentation + 4))[+] Files Copied Successfully"
+            Write-Verbose "$(Get-IndentString ($Indentation + $InnerIndentation + 3))[+] Successfully Copied Files to $Destination"
+        }
+        catch {
+            throw $_
+        }
+        finally {
+            Remove-ProgressBar
         }
     }
 
@@ -296,10 +341,8 @@ function Move-TemporaryFolder {
         $fullDestPath = Join-Path $fullDestPath $Name
     }
 
-    Write-Verbose "Moving Files from Temporary Directory:"
-    Write-Verbose "  Name: $(Split-Path $tempFolder -Leaf)"
-    Write-Verbose "  Destination: $fullDestPath"
     Move-Item -Path $tempFolder -Destination $fullDestPath @NO_RISK_PARAMS | Out-Null
+    Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Files Copied to Installation Location: $fullDestPath"
 
     if (-not (Test-Path $fullDestPath)) {
         throw "Failed to Move $tempFolder to $fullDestPath"
@@ -322,11 +365,11 @@ function Remove-TemporaryFolder {
     $tempLocation = [System.IO.Path]::GetTempPath()
 
     if ($TempFolder -ilike "$tempLocation*" -and (Test-Path $tempFolder)) {
-        Write-Verbose "Removing Temporary Directory: $tempFolder"
         Remove-Item $tempFolder -Recurse -Force @NO_RISK_PARAMS
+        Write-Verbose "$(Get-IndentString -Indentation 1)[+] Removed Temporary Directory: $tempFolder"
 
         if (Test-Path $tempFolder) {
-            Write-Warning "Failed to Remove Temporary Directory $tempFolder"
+            Write-Warning "Failed to Remove Temporary Directory: $tempFolder"
         }
     }
 
@@ -377,368 +420,642 @@ function Set-InstallVerb {
 }
 
 
-if ((& "$PSScriptRoot\Test-Link2RootInstall.ps1" -Silent -PassThru -Internal) -and -not $Reinstall) {
-    if (-not $Silent) {
-        _wc "Link2Root" -NoNewline
-        Write-Host " is " -NoNewline
-        Write-Host "Already Installed!" -ForegroundColor DarkYellow
-    }
-
-    if ($PassThru) {
-        return $false
-    }
-    else {
-        return
-    }
+$ErrorActionPreference = "Stop"
+   
+if ($Force -and -not $PSBoundParameters.ContainsKey("Confirm")) {
+    $ConfirmPreference = "None"
 }
 
+if ($Silent) {
+    $NoOutput = $true
+    $NoProgress = $true
+}
+
+if (-not $NoProgress)   { Enable-ProgressBars }
+else                    { Disable-ProgressBars }
+
 try {
-    [string]$installLocation = & "$PSScriptRoot\Get-Link2RootInstall.ps1"
-    [string]$modulePath = & "$PSScriptRoot\Get-Link2RootInstall.ps1" -GetModulePath
-    [string]$modulesLocation = Split-Path $modulePath -Parent
-    [string]$psFolder = Split-Path $modulesLocation -Parent
-    [string]$psFolderName = Split-Path $psFolder -Leaf
-    [bool]$success = $false
-    [bool]$yesToAll = $false
-    [bool]$noToAll = $false
-
-    $ErrorActionPreference = "Stop"
-
-    if ($Force -and -not $PSBoundParameters.ContainsKey("Confirm")) {
-        $ConfirmPreference = "None"
-    }
-    if ($Reinstall -and ((Test-Path $installLocation) -or (Test-Path $modulePath))) {
-        Set-InstallVerb Reinstall
+    [hashtable]$installTestArgs = @{
+        NoOutput = $true
+        NoProgress = $NoProgress
+        PassThru = $true
+        SkipInstallIntegrityCheck = $true
+        SkipModuleIntegrityCheck = $true
+        Internal = $true
+        Indentation = ($Indentation + 2)
     }
 
-    if ($Force -or $PSCmdlet.ShouldContinue("$(Get-InstallVerb -Installer) Link2Root", "Confirm", [ref]$yesToAll, [ref]$noToAll)) {
-        [bool]$scriptIsInstalled = (Test-Path $installLocation)
-        [bool]$moduleIsInstalled = (Test-Path $modulePath)
-        [bool]$isAddedToPATH = Test-UserPATH -Entry $installLocation
+    Write-Verbose "$(Get-IndentString $Indentation)[>] Running Link2Root Installer..."
+    Add-ProgressBar -Name "Installing Link2Root" -DefaultPercentageChange 25 -InitialSecondsRemaining 5
+    Update-ProgressBar -Status "Check Current Installation Status"
 
-        # Install the script in the current user's local appdata folder
-        if (-not $SkipScriptInstall) {
-            if (-not $scriptIsInstalled -or $Reinstall) {
-                (& {
-                    if (-not $scriptIsInstalled) { return "Install" }
-                    else                         { return "Reinstall" }
-                }) | Set-InstallVerb
-        
-                if ($yesToAll -or $PSCmdlet.ShouldProcess(
-                    "$(Get-InstallVerb)ing Link2Root in $installLocation",
-                    "$(Get-InstallVerb) Link2Root in $installLocation",
-                    "Confirm`nAre you sure you want to perform this action?"
-                )) {
-                    [string]$tempFolder = ""
+    Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Checking for Installation Eligibility..."
+    
+    if ((& "$PSScriptRoot\Test-Link2RootInstall.ps1" @installTestArgs) -and -not $Reinstall) {
+        Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Ineligible for Installation"
+        Write-Verbose "$(Get-IndentString $Indentation)[-] Link2Root Installation Aborted."
+        Update-ProgressBar -Status "No Installation Required" -PercentageChange 100
 
-                    try {
-                        $tempFolder = New-TemporaryFolder
-                        [hashtable[]]$copyFileArgs = @(
-                            @{
-                                Path = @(
-                                    "$PSScriptRoot\..\Link*Root.*",
-                                    "$PSScriptRoot\..\README.md"
-                                )
-                                Destination = $tempFolder
-                            },
-                            @{
-                                Path = $PSScriptRoot
-                                Destination = $tempFolder
-                                Name = "Installation"
-                                Exclude = $SETUP_FOLDER_IGNORED_FILES
-                            },
-                            @{
-                                Path = "$PSScriptRoot\..\Scripts"
-                                Destination = $tempFolder
+        if (-not $NoOutput) {
+            _wc "Link2Root" -NoNewline
+            Write-Host " is " -NoNewline
+            Write-Host "Already Installed!" -ForegroundColor DarkYellow
+        }
+    
+        if ($PassThru) {
+            return $false
+        }
+        else {
+            return
+        }
+    }
+
+    Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] Eligible for Installation"
+    
+    try {
+        [string]$installLocation = & "$PSScriptRoot\Get-Link2RootInstall.ps1"
+        [string]$modulePath = & "$PSScriptRoot\Get-Link2RootInstall.ps1" -GetModulePath -Indentation ($Indentation + 1)
+        [string]$modulesLocation = Split-Path $modulePath -Parent
+        [string]$psFolder = Split-Path $modulesLocation -Parent
+        [string]$psFolderName = Split-Path $psFolder -Leaf
+        [string]$username = Get-FullyQualifiedUsername
+        [bool]$success = $false
+        [bool]$yesToAll = $false
+        [bool]$noToAll = $false
+
+        if ($Reinstall -and ((Test-Path $installLocation) -or (Test-Path $modulePath))) {
+            Set-InstallVerb Reinstall
+        }
+
+        Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Requesting User Confirmation to Proceed with $(Get-InstallVerb -)ation..."
+    
+        if ($Force -or $PSCmdlet.ShouldContinue("$(Get-InstallVerb -Installer) Link2Root for $(Get-FullyQualifiedUsername)", "Confirm", [ref]$yesToAll, [ref]$noToAll)) {
+            if (-not $Force)    { Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] User Approved Confirmation." }
+            else                { Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] Confirmation Automatically Approved via -Force Flag." }
+
+            [bool]$scriptIsInstalled = Test-Path $installLocation
+            [bool]$moduleIsInstalled = Test-Path $modulePath
+            [bool]$isAddedToPATH = Test-UserPATH -Entry $installLocation -NoProgress
+            
+
+            # Install the script in the current user's local appdata folder
+            Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Copy Link2Root Files..."
+            Update-ProgressBar -Status "Copy Link2Root Files" -CurrentOperation "Check Install Status" -PercentageChange 0
+            (& {
+                if (-not $scriptIsInstalled) { return "Install" }
+                else                         { return "Reinstall" }
+            }) | Set-InstallVerb
+
+            if (-not $SkipScriptInstall) {
+                if (-not $scriptIsInstalled -or $Reinstall) {                    
+                    Write-Verbose "$(Get-IndentString ($Indentation + 2))[>] Requesting User Confirmation to Proceed with $(Get-InstallVerb -Installer)ation of Link2Root Files..."
+            
+                    if ($yesToAll -or $PSCmdlet.ShouldProcess(
+                        "$(Get-IndentString ($Indentation + 3))[+] Confirmation APPROVED",
+                        "$(Get-InstallVerb) Link2Root in $installLocation",
+                        "Confirm`nAre you sure you want to perform this action?"
+                    )) {
+                        [string]$tempFolder = ""
+
+                        if ($yesToAll) {
+                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Confirmation Automatically Approved via Previous `"Yes to All`" Response"
+                        }
+                        elseif ($ConfirmPreference -in @("None", "High")) {
+                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Confirmation Automatically Approved due to Current ConfirmPreference Level ($ConfirmPreference)"
+                        }
+                        else {
+                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] User Approved Confirmation."
+                        }
+    
+                        try {
+                            Update-ProgressBar -Status "Copy Link2Root Files" -CurrentOperation "Create Temporary Folder" -PercentageChange 5
+    
+                            $tempFolder = New-TemporaryFolder
+                            [hashtable[]]$copyFileArgs = @(
+                                @{
+                                    Path = @(
+                                        "$PSScriptRoot\..\Link*Root.*",
+                                        "$PSScriptRoot\..\README.md"
+                                    )
+                                    Destination = $tempFolder
+                                },
+                                @{
+                                    Path = $PSScriptRoot
+                                    Destination = $tempFolder
+                                    Name = "Installation"
+                                    Exclude = $SETUP_FOLDER_IGNORED_FILES
+                                },
+                                @{
+                                    Path = "$PSScriptRoot\..\Scripts"
+                                    Destination = $tempFolder
+                                }
+                            )
+                
+                            try {
+                                Write-Verbose "$(Get-IndentString ($Indentation + 2))[>] Copy Installation Files to Temporary Directory..."
+
+                                foreach ($copyArgs in $copyFileArgs) {
+                                    Copy-ToTemporaryFolder @copyArgs
+                                }
+
+                                Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Copied Installation Files to Temporary Directory"
                             }
-                        )
-            
-                        foreach ($copyArgs in $copyFileArgs) {
-                            Copy-ToTemporaryFolder @copyArgs
-                        }
-            
-                        if ($scriptIsInstalled) {
-                            Write-Verbose "Removing Existing Link2Root Installation Files for Reinstall"
-                            & "$PSScriptRoot\Uninstall-Link2Root.ps1" -Reinstall -KeepModule -KeepPATH -Silent -Force -Verbose:$VerbosePreference
-                        }
-            
-                        Move-TemporaryFolder -TempFolder $tempFolder -Destination $installLocation
-                        $success = $true
-                        Assert-InstallIntegrity -Source "$PSScriptRoot/../" -Install $installLocation -Exclude $SETUP_FOLDER_IGNORED_FILES -Verbose:$VerbosePreference
-                    
-                        if (-not $Silent) {
-                            _wcp -Success
-                            Write-Host "Successfully $(Get-InstallVerb -lc)ed " -NoNewline -ForegroundColor Green
-                            _wc "Link2Root" -NoNewline
-                            Write-Host " in " -NoNewline
-                            _wp $installLocation
-                        }
-                    }
-                    catch {
-                        if (-not $Silent) {
-                            _wcp -Failed
-                            Write-Host "Failed to $(Get-InstallVerb -lc) " -NoNewline -ForegroundColor Red
-                            _wc "Link2Root" -NoNewline
-                            Write-Host " in " -NoNewline
-                            _wp $installLocation
-                        }
+                            catch {
+                                throw $_
+                            }
+                            finally {
+                                Update-ProgressBar -Status "Copy Link2Root Files" -CurrentOperation "Copy Installation Files" -PercentageChange 15
+                            }
+    
+                            Update-ProgressBar -Status "Copy Link2Root Files" -CurrentOperation "Validate File Integrity" -PercentageChange 5
+                            Assert-InstallIntegrity `
+                                -Source "$PSScriptRoot/../" `
+                                -Install $tempFolder `
+                                -Exclude $SETUP_FOLDER_IGNORED_FILES `
+                                -Verbose:$VerbosePreference `
+                                -Indentation ($Indentation + 2)
+                             
+                            if ($scriptIsInstalled) {
+                                Write-Verbose "$(Get-IndentString ($Indentation + 2))[>] Removing Existing Installation Files for Reinstall..."
+                                Update-ProgressBar -Status "Copy Link2Root Files" -CurrentOperation "Remove Existing Files" -PercentageChange 0
+                                & "$PSScriptRoot\Uninstall-Link2Root.ps1" `
+                                    -Reinstall `
+                                    -Force `
+                                    -KeepModule `
+                                    -KeepPATH `
+                                    -NoOutput `
+                                    -NoProgress:$NoProgress `
+                                    -Verbose:$VerbosePreference `
+                                    -Indentation ($Indentation + 3)
+                                Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Removed Existing Installation Files for Reinstall"
+                            }
 
-                        throw $_
+                            Update-ProgressBar -Status "Copy Link2Root Files" -CurrentOperation "Finalize Changes" -PercentageChange 15
+                            Move-TemporaryFolder -TempFolder $tempFolder -Destination $installLocation
+                            
+                            Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] Link2Root Files Copied"
+                            Update-ProgressBar -Status "Copy Link2Root Files" -CurrentOperation "Operation Completed Successfully" -PercentageChange 10
+                            $success = $true
+
+                            if (-not $NoOutput) {
+                                _wcp -Success
+                                Write-Host "Successfully $(Get-InstallVerb -lc)ed " -NoNewline -ForegroundColor Green
+                                _wc "Link2Root" -NoNewline
+                                Write-Host " in " -NoNewline
+                                _wp $installLocation
+                            }
+                        }
+                        catch {
+                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] Failed to Copy Installation Files"
+                            Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Link2Root Files were NOT Copied"
+                            Update-ProgressBar -Status "Copy Link2Root Files" -CurrentOperation "Operation Failed" -PercentageChange 100
+                            
+                            if (-not $NoOutput) {
+                                _wcp -Failed
+                                Write-Host "Failed to $(Get-InstallVerb -lc) " -NoNewline -ForegroundColor Red
+                                _wc "Link2Root" -NoNewline
+                                Write-Host " in " -NoNewline
+                                _wp $installLocation
+                            }
+    
+                            throw $_
+                        }
+                        finally {
+                            if ($null -ne $tempFolder) {
+                                Remove-TemporaryFolder $tempFolder
+                            }
+                        }
                     }
-                    finally {
-                        if ($null -ne $tempFolder) {
-                            Remove-TemporaryFolder $tempFolder
+                    elseif (-not $WhatIfPreference) {
+                        Write-Verbose "$(Get-IndentString ($Indentation + 3))[-] Confirmation NOT Approved"
+                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] User Rejected Confirmation"
+                        Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Link2Root Files were NOT Copied"
+                        Update-ProgressBar -Status "Copy Link2Root Files" -CurrentOperation "Operation Skipped"
+                        
+                        if (-not $NoOutput) {
+                            _wcp
+                            Write-Host "Skipped $(Get-InstallVerb -lc)ation" -NoNewline -ForegroundColor DarkYellow
+                            Write-Host " of " -NoNewline
+                            _wc "Link2Root" -NoNewline
+                            Write-Host " in " -NoNewline
+                            _wp $installLocation
                         }
                     }
                 }
-                elseif (-not $Silent) {
-                    _wcp -Failed
-                    _wc "Link2Root" -NoNewline
-                    Write-Host " was " -NoNewline
-                    Write-Host "not $(Get-InstallVerb -lc)ed" -NoNewline -ForegroundColor Red
-                    Write-Host " in " -NoNewline
-                    _wp $installLocation
+                else {
+                    Write-Verbose "$(Get-IndentString ($Indentation + 2))[/] Existing Installation Files Found"
+                    Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] Link2Root Files Copied Successfully"
+                    Update-ProgressBar -Status "Copy Link2Root Files" -CurrentOperation "No Action Required"
+                    
+                    if (-not $NoOutput) {
+                        _wcp
+                        _wc "Link2Root" -NoNewline
+                        Write-Host " is " -NoNewline
+                        Write-Host "already installed" -NoNewline -ForegroundColor DarkYellow
+                        Write-Host " in " -NoNewline
+                        _wp $installLocation
+                    }
                 }
             }
             else {
-                if (-not $Silent) {
-                    _wcp
+                Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] -SkipScriptInstall Flag Passed to Installation Script"
+                Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] Link2Root Files were NOT Copied"
+                Update-ProgressBar -Status "Copy Link2Root Files" -CurrentOperation "Action Skipped"
+
+                if (-not $NoOutput) {
+                     _wcp
+                    Write-Host "Skipped $(Get-InstallVerb -lc)ation" -NoNewline -ForegroundColor DarkYellow
+                    Write-Host " of " -NoNewline
                     _wc "Link2Root" -NoNewline
-                    Write-Host " is " -NoNewline
-                    Write-Host "already installed" -NoNewline -ForegroundColor DarkYellow
                     Write-Host " in " -NoNewline
                     _wp $installLocation
                 }
             }
-        }
-        
-        # Install the module in the current user's PowerShell Modules folder
-        if (-not $SkipModuleInstall) {
-            if (-not $moduleIsInstalled -or $Reinstall) {
-                (& {
-                    if (-not $moduleIsInstalled) { return "Install" }
-                    else                         { return "Reinstall" }
-                }) | Set-InstallVerb
-        
-                if ($yesToAll -or $PSCmdlet.ShouldProcess(
-                    "$(Get-InstallVerb)ing Link2Root PowerShell Module in $modulesLocation",
-                    "$(Get-InstallVerb) Link2Root PowerShell Module in $modulesLocation",
-                    "Confirm`nAre you sure you want to perform this action?"
-                )) {
-                    [string]$tempFolder = ""
+            
 
-                    try {
-                        [hashtable]$testFileArgs = @{
-                            ItemType = "File"
-                            Path = [System.Environment]::GetFolderPath("MyDocuments")
-                            Name = "$(New-GUID).tmp"
-                            ErrorAction = "SilentlyContinue"
+            # Install the module in the current user's PowerShell Modules folder
+            Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Install PowerShell Module..."
+            Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "Check Install Status" -PercentageChange 0
+            (& {
+                if (-not $moduleIsInstalled) { return "Install" }
+                else                         { return "Reinstall" }
+            }) | Set-InstallVerb
+
+            if (-not $SkipModuleInstall) {
+                if (-not $moduleIsInstalled -or $Reinstall) {
+                    Write-Verbose "$(Get-IndentString ($Indentation + 2))[>] Requesting User Confirmation to Proceed with $(Get-InstallVerb -Installer)ation of PowerShell Module..."
+            
+                    if ($yesToAll -or $PSCmdlet.ShouldProcess(
+                        "$(Get-IndentString ($Indentation + 3))[+] Confirmation APPROVED",
+                        "$(Get-InstallVerb) Link2Root PowerShell Module in $modulesLocation",
+                        "Confirm`nAre you sure you want to perform this action?"
+                    )) {
+                        [string]$tempFolder = ""
+
+                        if ($yesToAll) {
+                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Confirmation Automatically Approved via Previous `"Yes to All`" Response"
                         }
-                        
-                        $tempFolder = New-TemporaryFolder
-
-                        Copy-ToTemporaryFolder -Path "$PSScriptRoot\..\Link2Root.ps?1" -Destination $tempFolder
-
-                        # Test if we can write to the /Documents folder or not
-                        if ($testFile = (New-Item @testFileArgs @NO_RISK_PARAMS)) {
-                            Remove-Item -Path $testFile
-
-                            if (-not (Test-Path $modulesLocation)) {        
-                                Write-Verbose "No Existing PowerShell Module Folder Found!"
-                                Write-Verbose "Attempting to Create PowerShell Module Folder in $modulesLocation..."
-        
-                                if (-not (Test-Path $psFolder)) {
-                                    New-InstallDirectory -Path (Split-Path $psFolder -Parent) -Name (Split-Path $psFolder -Leaf)
-                                }
+                        elseif ($ConfirmPreference -in @("None", "High")) {
+                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Confirmation Automatically Approved due to Current ConfirmPreference Level ($ConfirmPreference)"
+                        }
+                        else {
+                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] User Approved Confirmation."
+                        }
+    
+                        try {
+                            [hashtable]$testFileArgs = @{
+                                ItemType = "File"
+                                Path = [System.Environment]::GetFolderPath("MyDocuments")
+                                Name = "$(New-GUID).tmp"
+                                ErrorAction = "SilentlyContinue"
+                            }
+                            
+                            Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "Create Temporary Folder" -PercentageChange 5
+                            $tempFolder = New-TemporaryFolder
+    
+                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[>] Copy Installation Files to Temporary Directory..."
+                            Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "Copy PowerShell Module Files" -PercentageChange 5
+                            Copy-ToTemporaryFolder -Path "$PSScriptRoot\..\Link2Root.ps?1" -Destination $tempFolder
+                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Copied Installation Files to Temporary Directory"
+                            
+                            Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "Verify File Integrity" -PercentageChange 5
+                            Assert-InstallIntegrity `
+                                -Source "$PSScriptRoot/../" `
+                                -Install $tempFolder `
+                                -Filter "Link2Root.ps?1" `
+                                -Verbose:$VerbosePreference `
+                                -Indentation ($Indentation + 2)
                                 
-                                New-InstallDirectory -Path $psFolder -Name (Split-Path $modulesLocation -Leaf)
+                            # Test if we can write to the /Documents folder or not
+                            if ($testFile = (New-Item @testFileArgs @NO_RISK_PARAMS)) {
+                                Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Permissions Sufficient to make changes to Documents Directory"
+                                Remove-Item -Path $testFile @NO_RISK_PARAMS
+
+                                Write-Verbose "$(Get-IndentString ($Indentation + 2))[>] Locating PowerShell Modules Directory..."
+
+                                if (-not (Test-Path $modulesLocation)) {
+                                    Write-Verbose "$(Get-IndentString ($Indentation + 3))[-] Existing PowerShell Modules Directory NOT Found"
+                                    Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "Create PowerShell Folders" -PercentageChange 0
+            
+                                    if (-not (Test-Path $psFolder)) {
+                                        New-InstallDirectory -Path (Split-Path $psFolder -Parent) -Name (Split-Path $psFolder -Leaf)
+                                    }
+                                    
+                                    New-InstallDirectory -Path $psFolder -Name (Split-Path $modulesLocation -Leaf)
+                                }
+                                else {
+                                    Write-Verbose "$(Get-IndentString ($Indentation + 3))[+] Existing PowerShell Modules Directory FOUND"
+                                }
+
+                                Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] PowerShell Modules Directory Located: $modulesLocation"
+                    
+                                if ($moduleIsInstalled) {
+                                    Write-Verbose "$(Get-IndentString ($Indentation + 2))[>] Removing Existing PowerShell Module Files for Reinstall..."
+                                    Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "Remove Existing Files" -PercentageChange 0
+                                    & "$PSScriptRoot\Uninstall-Link2Root.ps1" `
+                                        -Reinstall `
+                                        -KeepInstall `
+                                        -KeepPATH `
+                                        -NoOutput `
+                                        -NoProgress:$NoProgress `
+                                        -Force `
+                                        -Verbose:$VerbosePreference `
+                                        -Indentation ($Indentation + 3)
+                                    Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Removed Existing PowerShell Module Files for Reinstall"
+                                }
+                    
+                                Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "Finalize Changes" -PercentageChange 5
+                                Move-TemporaryFolder -TempFolder $tempFolder -Destination $modulePath
+                                $success = $true
+    
+                                Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] PowerShell Module Installed"
+                                Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "Operation Completed Successfully" -PercentageChange 5
+                    
+                                if (-not $NoOutput) {
+                                    _wcp -Success
+                                    Write-Host "Successfully $(Get-InstallVerb -lc)ed" -NoNewline -ForegroundColor Green
+                                    Write-Host " the " -NoNewline
+                                    _wc "Link2Root PowerShell Module" -NoNewline
+                                    Write-Host " in " -NoNewline
+                                    _wp $modulePath
+                                }
                             }
-                
-                            if ($moduleIsInstalled) {
-                                Write-Verbose "Removing Existing Link2Root PowerShell Module Files for Reinstall"
-                                & "$PSScriptRoot\Uninstall-Link2Root.ps1" -Reinstall -KeepInstall -KeepPATH -Silent -Force -Verbose:$VerbosePreference
-                            }
-                
-                            Move-TemporaryFolder -TempFolder $tempFolder -Destination $modulePath
-                            $success = $true
-                            Assert-InstallIntegrity -Source "$PSScriptRoot/../" -Install $modulePath -Filter "Link2Root.ps?1" -Verbose:$VerbosePreference
-                
-                            if (-not $Silent) {
+                            else {
+                                [string]$desktop = ([System.Environment]::GetFolderPath("Desktop"))
+    
+                                if (-not $NoOutput) {
+                                    Write-Warning "PowerShell does not have permission to modify $psFolder. This often caused by Anti-Virus Software or Windows Security's `"Controlled Folder Access`" option."
+                                }
+                            
+                                if (-not (Test-Path "$desktop\$psFolderName")) {
+                                    if ($Force -or $yesToAll -or $PSCmdlet.ShouldContinue(
+                                        "You will have to manually move the directory into your /Documents folder to $(Get-InstallVerb -lc) the PowerShell Module.",
+                                        "Do you want to create the PowerShell Module Folder on the Desktop?",
+                                        [ref]$yesToAll,
+                                        [ref]$noToAll
+                                    )) {
+                                        [string]$modulesFolderName = (Split-Path $modulesLocation -Leaf)
+        
+                                        New-InstallDirectory -Path $desktop -Name $psFolderName -PassThru |
+                                            New-InstallDirectory -Name $modulesFolderName -PassThru |
+                                                Move-TemporaryFolder -TempFolder $tempFolder -Name "Link2Root" -PassThru |
+                                                    Assert-InstallIntegrity -Source "$PSScriptRoot/../" -Filter "Link2Root.ps?1" -Verbose:$VerbosePreference
+                                    }
+                                }
+                                else {
+                                    Write-Verbose "PowerShell Module Folder already exists at $(Resolve-Path "$desktop\$psFolderName")"
+                                }
+    
+                                Update-ProgressBar -Status "Update User PATH" -CurrentOperation "Operation Completed with Warnings" -PercentageChange 15
+    
+                                if (-not $NoOutput) {
+                                    _wcp
+                                    _wc "Link2Root PowerShell Module" -NoNewline
+                                    Write-Host " is " -NoNewline
+                                    Write-Host "Pending Manual $(Get-InstallVerb)ation" -NoNewline -ForegroundColor DarkYellow
+                                    Write-Host " from " -NoNewline
+                                    _wp "$desktop\$psFolderName"
+                                    Write-Host " to " -NoNewline
+                                    _wp $psFolder
+                                }
+                            }    
+                        }
+                        catch {
+                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] Failed to Install PowerShell Module"
+                            Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] PowerShell Module was NOT Installed"
+                            Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "Operation Failed" -PercentageChange 100
+                            
+                            if (-not $NoOutput) {
                                 _wcp -Success
-                                Write-Host "Successfully $(Get-InstallVerb -lc)ed" -NoNewline -ForegroundColor Green
+                                Write-Host "Failed to $(Get-InstallVerb -lc)" -NoNewline -ForegroundColor Red
                                 Write-Host " the " -NoNewline
                                 _wc "Link2Root PowerShell Module" -NoNewline
                                 Write-Host " in " -NoNewline
                                 _wp $modulePath
                             }
-                        }
-                        else {
-                            [string]$desktop = ([System.Environment]::GetFolderPath("Desktop"))
-
-                            if (-not $Silent) {
-                                Write-Warning "PowerShell does not have permission to modify $psFolder. This often caused by Anti-Virus Software or Windows Security's `"Controlled Folder Access`" option."
-                            }
-                        
-                            if (-not (Test-Path "$desktop\$psFolderName")) {
-                                if ($Force -or $yesToAll -or $PSCmdlet.ShouldContinue(
-                                    "You will have to manually move the directory into your /Documents folder to $(Get-InstallVerb -lc) the PowerShell Module.",
-                                    "Do you want to create the PowerShell Module Folder on the Desktop?",
-                                    [ref]$yesToAll,
-                                    [ref]$noToAll
-                                )) {
-                                    [string]$modulesFolderName = (Split-Path $modulesLocation -Leaf)
     
-                                    New-InstallDirectory -Path $desktop -Name $psFolderName -PassThru |
-                                        New-InstallDirectory -Name $modulesFolderName -PassThru |
-                                            Move-TemporaryFolder -TempFolder $tempFolder -Name "Link2Root" -PassThru |
-                                                Assert-InstallIntegrity -Source "$PSScriptRoot/../" -Filter "Link2Root.ps?1" -Verbose:$VerbosePreference
-                                }
+                            throw $_
+                        }
+                        finally {
+                            if ($null -ne $tempFolder) {
+                                Remove-TemporaryFolder $tempFolder
                             }
-                            else {
-                                Write-Verbose "PowerShell Module Folder already exists at $(Resolve-Path "$desktop\$psFolderName")"
-                            }
-
-                            if (-not $Silent) {
-                                _wcp
-                                _wc "Link2Root PowerShell Module" -NoNewline
-                                Write-Host " is " -NoNewline
-                                Write-Host "Pending Manual $(Get-InstallVerb)ation" -NoNewline -ForegroundColor DarkYellow
-                                Write-Host " from " -NoNewline
-                                _wp "$desktop\$psFolderName"
-                                Write-Host " to " -NoNewline
-                                _wp $psFolder
-                            }
-                        }    
+                        }
                     }
-                    catch {
-                        if (-not $Silent) {
-                            _wcp -Success
-                            Write-Host "Failed to $(Get-InstallVerb -lc)" -NoNewline -ForegroundColor Red
-                            Write-Host " the " -NoNewline
+                    elseif (-not $WhatIfPreference) {
+                        Write-Verbose "$(Get-IndentString ($Indentation + 3))[-] Confirmation NOT Approved"
+                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] User Rejected Confirmation"
+                        Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] PowerShell Module was NOT Installed"
+                        Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "Operation Skipped"
+                        
+                        if (-not $NoOutput) {
+                            _wcp
+                            Write-Host "Skipped $(Get-InstallVerb -lc)ation" -NoNewline -ForegroundColor DarkYellow
+                            Write-Host " of the " -NoNewline
                             _wc "Link2Root PowerShell Module" -NoNewline
                             Write-Host " in " -NoNewline
-                            _wp $modulePath
-                        }
-
-                        throw $_
-                    }
-                    finally {
-                        if ($null -ne $tempFolder) {
-                            Remove-TemporaryFolder $tempFolder
+                            _wp $installLocation
                         }
                     }
                 }
-                elseif (-not $Silent) {
-                    _wcp -Failed
-                    Write-Host "The " -NoNewline
-                    _wc "Link2Root PowerShell Module" -NoNewline
-                    Write-Host " was " -NoNewline
-                    Write-Host "not $(Get-InstallVerb -lc)ed" -NoNewline -ForegroundColor Red
-                    Write-Host " in " -NoNewline
-                    _wp $modulePath
+                else {
+                    Write-Verbose "$(Get-IndentString ($Indentation + 2))[/] Existing PowerShell Module Files Found"
+                    Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] PowerShell Module Installed Successfully"
+                    Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "No Action Required"
+                    
+                    if (-not $NoOutput) {
+                        _wcp
+                        Write-Host "The " -NoNewline
+                        _wc "Link2Root PowerShell Module" -NoNewline
+                        Write-Host " is " -NoNewline
+                        Write-Host "already installed" -NoNewline -ForegroundColor DarkYellow
+                        Write-Host " in " -NoNewline
+                        _wp $modulePath
+                    }
                 }
             }
             else {
-                if (-not $Silent) {
-                    _wcp
-                    Write-Host "The " -NoNewline
+                Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] -SkipModuleInstall Flag Passed to Installation Script"
+                Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] PowerShell Module was NOT Installed"
+                Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "Action Skipped"
+
+                if (-not $NoOutput) {
+                     _wcp
+                    Write-Host "Skipped $(Get-InstallVerb -lc)ation" -NoNewline -ForegroundColor DarkYellow
+                    Write-Host " of the " -NoNewline
                     _wc "Link2Root PowerShell Module" -NoNewline
-                    Write-Host " is " -NoNewline
-                    Write-Host "already installed" -NoNewline -ForegroundColor DarkYellow
                     Write-Host " in " -NoNewline
-                    _wp $modulePath
+                    _wp $installLocation
                 }
             }
-        }
+    
+            # Update the User's PATH
+            Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Update User PATH..."
+            Update-ProgressBar -Status "Update User PATH" -CurrentOperation "Check Install Status" -PercentageChange 0
+            [string]$installVerb = & {
+                if (-not $isAddedToPATH) { return "Add" }
+                else                     { return "Re-Add" }
+            }
+            
+            if (-not $SkipPATHUpdate) {
+                if (-not $isAddedToPATH -or $Reinstall) {
+                    Write-Verbose "$(Get-IndentString ($Indentation + 2))[>] Requesting User Confirmation to Proceed with Modifying User PATH..."
+                    
+                    if ($yesToAll -or $PSCmdlet.ShouldProcess(
+                        "$(Get-IndentString ($Indentation + 3))[+] Confirmation APPROVED",
+                        "$installVerb $installLocation to $username's PATH",
+                        "Confirm`nAre you sure you want to perform this action?"
+                    )) {
+                        if ($yesToAll) {
+                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Confirmation Automatically Approved via Previous `"Yes to All`" Response"
+                        }
+                        elseif ($ConfirmPreference -in @("None", "High")) {
+                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Confirmation Automatically Approved due to Current ConfirmPreference Level ($ConfirmPreference)"
+                        }
+                        else {
+                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] User Approved Confirmation."
+                        }
 
-        # Update the User's PATH
-        if (-not $SkipPATHUpdate) {
-            if (-not $isAddedToPATH -or $Reinstall) {
-                [string]$username = Get-FullyQualifiedUsername
-                [string]$installVerb = & {
-                    if (-not $isAddedToPATH) { return "Add" }
-                    else                     { return "Re-Add" }
-                }
-                
-                if ($yesToAll -or $PSCmdlet.ShouldProcess(
-                    "${installVerb}ing $installLocation to $username's PATH",
-                    "$installVerb $installLocation to $username's PATH",
-                    "Confirm`nAre you sure you want to perform this action?"
-                )) {
-                    if ($isAddedToPATH) {
-                        Write-Verbose "Removing Link2Root from $username's PATH for Reinstall"
-                        & "$PSScriptRoot\Uninstall-Link2Root.ps1" -Reinstall -KeepInstall -KeepModule -Silent -Force -Verbose:$VerbosePreference
+                        if ($isAddedToPATH) {
+                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[>] Removing Link2Root from $username's PATH for Reinstall..."
+                            Update-ProgressBar -Status "Update User PATH" -CurrentOperation "Remove Existing PATH Entry" -PercentageChange 0
+                            & "$PSScriptRoot\Uninstall-Link2Root.ps1" `
+                                -Reinstall `
+                                -Force `
+                                -KeepInstall `
+                                -KeepModule `
+                                -NoOutput `
+                                -NoProgress:$NoProgress `
+                                -Verbose:$VerbosePreference `
+                                -Indentation ($Indentation + 3)
+                            Write-Verbose "$(Get-IndentString ($Indentation + 2))[+] Removed Link2Root from $username's PATH for Reinstall"
+                        }
+        
+                        Update-ProgressBar -Status "Update User PATH" -CurrentOperation "Add PATH Entry" -PercentageChange 10
+                        Set-UserPATH `
+                            -PATH ((Get-UserPATH) + @($installLocation)) `
+                            -Verbose:$VerbosePreference `
+                            -Indentation ($Indentation + 2)
+
+                        Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] User PATH Updated"
+                        Update-ProgressBar -Status "Update User PATH" -CurrentOperation "Operation Completed Successfully" -PercentageChange 15
+                        $success = $true
+        
+                        if (-not $NoOutput) {
+                            _wcp -Success
+                            Write-Host "Successfully $(Get-InstallVerb -lc)ed " -NoNewline -ForegroundColor Green
+                            _wc "Link2Root" -NoNewline
+                            Write-Host " to " -NoNewline
+                            _wp "$username's PATH"
+                        }
                     }
+                    elseif (-not $WhatIfPreference) {
+                        Write-Verbose "$(Get-IndentString ($Indentation + 3))[-] Confirmation NOT Approved"
+                        Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] User Rejected Confirmation"
+                        Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] User PATH was NOT Modified"
+                        Update-ProgressBar -Status "Update User PATH" -CurrentOperation "Operation Skipped" -PercentageChange 25
     
-                    Set-UserPATH -PATH ((Get-UserPATH) + @($installLocation)) -Verbose:$VerbosePreference
-                    $success = $true
-    
-                    if (-not $Silent) {
-                        _wcp -Success
-                        Write-Host "Successfully $(Get-InstallVerb -lc)ed " -NoNewline -ForegroundColor Green
+                        if (-not $NoOutput) {
+                            _wcp
+                            Write-Host "Skipped $($installVerb.ToLower())ing " -NoNewline -ForegroundColor DarkYellow
+                            _wc "Link2Root" -NoNewline
+                            Write-Host " to " -NoNewline
+                            _wp "$username's PATH"
+                        }
+                    }
+                }
+                else {
+                    Write-Verbose "$(Get-IndentString ($Indentation + 2))[/] Existing PATH Entries Found"
+                    Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] User PATH Successfully Modified"
+                    Update-ProgressBar -Status "Update User PATH" -CurrentOperation "No Action Required" -PercentageChange 25
+                    
+                    if (-not $NoOutput) {
+                        _wcp
                         _wc "Link2Root" -NoNewline
+                        Write-Host " has " -NoNewline
+                        Write-Host "already been added" -NoNewline -ForegroundColor DarkYellow
                         Write-Host " to " -NoNewline
                         _wp "$username's PATH"
                     }
                 }
             }
             else {
-                if (-not $Silent) {
-                    _wcp
+                Write-Verbose "$(Get-IndentString ($Indentation + 2))[-] -SkipPATHUpdate Flag Passed to Installation Script"
+                Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] User PATH was NOT Modified"
+                Update-ProgressBar -Status "Install PowerShell Module" -CurrentOperation "Action Skipped"
+
+                if (-not $NoOutput) {
+                     _wcp
+                    Write-Host "Skipped $($installVerb.ToLower())ing " -NoNewline -ForegroundColor DarkYellow
                     _wc "Link2Root" -NoNewline
-                    Write-Host " has " -NoNewline
-                    Write-Host "already been added" -NoNewline -ForegroundColor DarkYellow
                     Write-Host " to " -NoNewline
                     _wp "$username's PATH"
                 }
             }
-        }
-    }
 
-    if (-not $Silent) {
-        Write-Host ""
-
-        if ($success) {
-            Write-Host "Successfully $(Get-InstallVerb -Installer -Lowercase)ed " -NoNewline -ForegroundColor Green
-            _wc "Link2Root" -NoNewline
-            Write-Host "!" -ForegroundColor Green
-            Write-EndRestartNotice
+            if ($success)   { Write-Verbose "$(Get-IndentString $Indentation)[+] Link2Root Installer Completed Successfully" }
+            else            { Write-Verbose "$(Get-IndentString $Indentation)[/] No Changes Made by the Link2Root Installer" }
         }
         else {
-            Write-Host "Nothing for " -NoNewline -ForegroundColor Yellow
-            _wc "Link2Root" -NoNewline
-            Write-Host " was $(Get-InstallVerb -Installer -Lowercase)ed." -ForegroundColor Yellow
+            Write-Verbose "$(Get-IndentString ($Indentation + 1))[-] User Rejected Confirmation."
+            Write-Verbose "$(Get-IndentString $Indentation)[-] Link2Root Installation Aborted."
+        }
+
+        Update-ProgressBar -Status "Installation Complete" -PercentageChange 100
+    
+        if (-not $NoOutput) {
+            # Write-Host ""
+    
+            if ($success) {
+                Write-Host "Successfully $(Get-InstallVerb -Installer -Lowercase)ed " -NoNewline -ForegroundColor Green
+                _wc "Link2Root" -NoNewline
+                Write-Host "!" -ForegroundColor Green
+                Write-EndRestartNotice
+            }
+            else {
+                Write-Host "Nothing for " -NoNewline -ForegroundColor Yellow
+                _wc "Link2Root" -NoNewline
+                Write-Host " was $(Get-InstallVerb -Installer -Lowercase)ed." -ForegroundColor Yellow
+            }
+        }
+        if ($PassThru) {
+            return $true
         }
     }
-    if ($PassThru) {
-        return $true
+    catch {
+        Update-ProgressBar -Status "Installation Failed" -PercentageChange 100
+
+        if (-not $NoOutput) {
+            Write-Host ""
+            Write-Host "Failed to $(Get-InstallVerb -Installer -Lowercase) " -NoNewline -ForegroundColor Red
+            _wc "Link2Root" -NoNewline
+            Write-Host "!" -ForegroundColor Red
+        }
+    
+        if ($success -and -not $NoRollBack -and -not $Reinstall) {
+            Write-Host "Rolling back changes..." -ForegroundColor DarkYellow
+            & "$PSScriptRoot\Uninstall-Link2Root.ps1" -Rollback -Silent -Force -Verbose:$VerbosePreference
+        }
+    
+        if (-not $NoOutput) {
+            Write-Host ""
+        }
+    
+        if ($PassThru) {
+            if (-not $NoOutput) {
+                Write-Host $_ -ForegroundColor Red
+            }
+    
+            return $false
+        }
+        else {
+            throw $_
+        }
     }
 }
 catch {
-    if (-not $Silent) {
-        Write-Host ""
-        Write-Host "Failed to $(Get-InstallVerb -Installer -Lowercase) " -NoNewline -ForegroundColor Red
-        _wc "Link2Root" -NoNewline
-        Write-Host "!" -ForegroundColor Red
-    }
-
-    if ($success -and -not $NoRollBack -and -not $Reinstall) {
-        Write-Host "Rolling back changes..." -ForegroundColor DarkYellow
-        & "$PSScriptRoot\Uninstall-Link2Root.ps1" -Rollback -Silent -Force -Verbose:$VerbosePreference
-    }
-
-    if (-not $Silent) {
-        Write-Host ""
-    }
-
-    if ($PassThru) {
-        if (-not $Silent) {
-            Write-Host $_ -ForegroundColor Red
-        }
-
-        return $false
-    }
-    else {
-        throw $_
-    }
+    throw $_
+}
+finally {
+    Remove-ProgressBar
 }

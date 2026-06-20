@@ -241,7 +241,14 @@ function Set-UserPATH {
             By default and when this switch is omitted, this function
             does not generate any output.
         #>
-        [switch]$PassThru
+        [switch]$PassThru,
+
+        <#
+            An internal parameter used to specify the indentation
+            level to use for output logging.
+        #>
+        [Parameter(DontShow)]
+        [int]$Indentation = 0
     )
 
     begin {
@@ -257,8 +264,13 @@ function Set-UserPATH {
     end {
         [string]$resolvedPATH = (Resolve-UserPATH $fullPATH -ToString)
     
-        Write-Verbose "Updating $(Get-FullyQualifiedUsername)'s PATH to: $resolvedPATH"
+        Write-Verbose "$(Get-IndentString $Indentation)[>] Updating $(Get-FullyQualifiedUsername)'s PATH..."
+        Write-Verbose "$(Get-IndentString ($Indentation + 1))[#] Original PATH: $(Get-UserPATH -AsString)"
+        Write-Verbose "$(Get-IndentString ($Indentation + 1))[#] Modified Value: $resolvedPATH"
+
         [System.Environment]::SetEnvironmentVariable("PATH", $resolvedPATH, "USER")
+        Write-Verbose "$(Get-IndentString ($Indentation + 1))[#] Updated PATH: $(Get-UserPATH -AsString)"
+        Write-Verbose "$(Get-IndentString $Indentation)[+] Updated $(Get-FullyQualifiedUsername)'s PATH"
 
         if ($PassThru) {
             return ((Get-UserPATH -Raw) -ieq $resolvedPATH)
@@ -318,11 +330,44 @@ function Test-UserPATH {
         #>
         [Parameter(Position = 2)]
         [PSDefaultValue(Help = "The Current User's PATH")]
-        [string[]]$PATH = (Get-UserPATH)
+        [string[]]$PATH = (Get-UserPATH),
+
+        [Alias("HideProgress")]
+        [switch]$NoProgress,
+
+        <#
+            An internal parameter used to specify the indentation
+            level to use for output logging.
+        #>
+        [Parameter(DontShow)]
+        [int]$Indentation = 0
     )
     
     process {
-        return ((Resolve-UserPATH $PATH -ToArray) -contains $Entry)
+        [array]$pathArray = (Resolve-UserPATH $PATH -ToArray)
+
+        Add-ProgressBar `
+            -Name "Checking $(Get-FullyQualifiedUsername)'s PATH" `
+            -DefaultPercentageChange (100 / $pathArray.Count) `
+            -Hidden:$NoProgress
+
+        foreach ($currentPath in $pathArray) {
+            Update-ProgressBar -Status $currentPath -CurrentOperation "Checking for Match..." -PercentageChange 0
+
+            if ($currentPath -ieq $Entry) {
+                Write-Verbose "$(Get-IndentString $Indentation)[+] $currentPath"
+                Update-ProgressBar -Status $currentPath -CurrentOperation "Match FOUND" -PercentageChange 100
+                Remove-ProgressBar
+                return $true
+            }
+            else {
+                Write-Verbose "$(Get-IndentString $Indentation)[-] $currentPath"
+                Update-ProgressBar -Status $currentPath -CurrentOperation "Match NOT Found"
+            }
+        }
+
+        Remove-ProgressBar
+        return $false
     }
 
 }
@@ -409,7 +454,14 @@ function Assert-InstallIntegrity {
             
             Enter a path element or pattern, such as *.txt. Wildcard characters are permitted.
         #>
-        [string[]]$Exclude
+        [string[]]$Exclude,
+
+        <#
+            An internal parameter used to specify the indentation
+            level to use for output logging.
+        #>
+        [Parameter(DontShow)]
+        [int]$Indentation = 0
     )
 
     if (-not (Test-InstallIntegrity @PSBoundParameters)) {
@@ -582,45 +634,75 @@ function Get-FileHashRecursive {
             }
         }
 
-        foreach ($resolvedPath in $resolvedPaths) {
-            if (-not $RecursiveCall -or (Test-FilePattern $resolvedPath -Filter $Filter -Include $Include -Exclude $Exclude -Indentation $Indentation)) {
-                if (Test-Path $resolvedPath -PathType Container) {
-                    Write-Verbose "$(Get-IndentString $Indentation)[>] Computing Hash for Directory: $resolvedPath..."
+        if ($resolvedPaths.Count -gt 0) {
+            Add-ProgressBar `
+                -Name "Retrieve Current File Hash" `
+                -DefaultPercentageChange (100 / $resolvedPaths.Count) `
+                -InitialSecondsRemaining 1
     
-                    [string]$directoryHash = Get-FileHashRecursive `
-                        -Path "$resolvedPath/*" `
-                        -Algorithm $Algorithm `
-                        -Filter $Filter `
-                        -Include $Include `
-                        -Exclude $Exclude `
-                        -Indentation ($Indentation + 1) `
-                        -RecursiveCall
-    
-                    Write-Verbose "$(Get-IndentString $Indentation)[#] Computed Hash '$directoryhash' for Directory: $resolvedPath"
-                    $childHashes.Add($directoryHash) | Out-Null
-                }
-                else {
-                    [string]$fileHash = (Get-FileHash -Path $resolvedPath -Algorithm $Algorithm).Hash
-    
-                    Write-Verbose "$(Get-IndentString $Indentation)[#] Computed Hash '$filehash' for File: $resolvedPath"
-                    $childHashes.Add($fileHash) | Out-Null
+            foreach ($resolvedPath in $resolvedPaths) {
+                if (-not $RecursiveCall -or (Test-FilePattern $resolvedPath -Filter $Filter -Include $Include -Exclude $Exclude -Indentation $Indentation)) {
+                    if (Test-Path $resolvedPath -PathType Container) {
+                        $displayPath = & {
+                            if ($RecursiveCall) { return (Split-Path $resolvedPath -Leaf) }
+                            else                { return $resolvedPath }
+                        }
+
+                        Write-Verbose "$(Get-IndentString $Indentation)[>] Computing Hash for Directory: $displayPath..."
+                        Update-ProgressBar `
+                            -Status (Split-Path $resolvedPath -Leaf) `
+                            -CurrentOperation "Computing Directory Hash..." `
+                            -PercentageChange 0
+        
+                        [string]$directoryHash = Get-FileHashRecursive `
+                            -Path "$resolvedPath/*" `
+                            -Algorithm $Algorithm `
+                            -Filter $Filter `
+                            -Include $Include `
+                            -Exclude $Exclude `
+                            -Indentation ($Indentation + 1) `
+                            -RecursiveCall
+        
+                        Write-Verbose "$(Get-IndentString $Indentation)[+] Computed Hash '$directoryhash' for Directory: $displayPath"
+                        Update-ProgressBar `
+                            -Status (Split-Path $resolvedPath -Leaf) `
+                            -CurrentOperation "Got Directory Hash: $directoryHash"
+                        $childHashes.Add($directoryHash) | Out-Null
+                    }
+                    else {
+                        Update-ProgressBar `
+                            -Status (Split-Path $resolvedPath -Leaf) `
+                            -CurrentOperation "Computing File Hash..." `
+                            -PercentageChange 0
+                        [string]$fileHash = (Get-FileHash -Path $resolvedPath -Algorithm $Algorithm).Hash
+        
+                        Update-ProgressBar `
+                            -Status (Split-Path $resolvedPath -Leaf) `
+                            -CurrentOperation "Got File Hash: $fileHash"
+                        Write-Verbose "$(Get-IndentString $Indentation)[#] Computed Hash '$filehash' for File: $(Split-Path $resolvedPath -Leaf)"
+                        $childHashes.Add($fileHash) | Out-Null
+                    }
                 }
             }
+
+            Remove-ProgressBar
         }
 
-        if ($childHashes.Count -gt 1) {
+        $fileHash = & {
+            if ($childHashes.Count -eq 1) {
+                return $childHashes[0]
+            }
+            
             foreach ($hash in $childHashes) {
                 $joinedHashesWriter.Write($hash)
             }
 
             $joinedHashesWriter.Flush()
             $joinedHashes.Position = 0
-        }
-        elseif ($childHashes.Count -eq 1) {
-            return $childHashes[0]
-        }
 
-        return (Get-FileHash -InputStream $joinedHashes -Algorithm $Algorithm).Hash
+            return (Get-FileHash -InputStream $joinedHashes -Algorithm $Algorithm).Hash
+        }
+        return $fileHash
     }
 
 }
@@ -705,7 +787,14 @@ function Test-InstallIntegrity {
             
             Enter a path element or pattern, such as *.txt. Wildcard characters are permitted.
         #>
-        [string[]]$Exclude
+        [string[]]$Exclude,
+
+        <#
+            An internal parameter used to specify the indentation
+            level to use for output logging.
+        #>
+        [Parameter(DontShow)]
+        [int]$Indentation = 0
     )
 
 
@@ -713,20 +802,29 @@ function Test-InstallIntegrity {
         Filter = $Filter
         Include = $Include
         Exclude = $Exclude
-        Indentation = 2
+        Indentation = ($Indentation + 2)
     }
     [string]$resolvedInstallPath = Resolve-Path $Install
 
+    Write-Verbose "$(Get-IndentString $Indentation)[>] Verifying Installation Integrity for: $resolvedInstallPath"
+    Add-ProgressBar `
+        -Name "Check File Integrity" `
+        -DefaultPercentageChange 50 `
+        -InitialSecondsRemaining 1
     
-    Write-Verbose "[>] Verifying Installation Integrity for: $resolvedInstallPath"
-    Write-Verbose "  [>] Computing Installation Directory Hash..."
-
+    Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Computing Expected Install Hash..."
+    Update-ProgressBar -Status "Get Expected Install Hash" -PercentageChange 0
+    
     [string]$sourceHash = Get-FileHashRecursive -Path $Source @commonArgs
+    Write-Verbose "$(Get-IndentString ($Indentation + 1))[+] Source Hash: $sourceHash"
+    Update-ProgressBar -Status "Got Expected Install Hash: $sourceHash"
 
-    Write-Verbose "  [+] Source Hash: $sourceHash"
-    Write-Verbose "  [>] Computing Installation Directory Hash..."
-
+    Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] Computing Actual Install Hash..."
+    Update-ProgressBar -Status "Get Actual Install Hash" -PercentageChange 0
+    
     [string]$installHash = Get-FileHashRecursive -Path $Install @commonArgs
+    Update-ProgressBar -Status "Got Actual Install Hash: $sourceHash"
+    
     [bool]$result = $sourceHash -eq $installHash
     [string]$resultIcon = ""
     [string]$resultVerb = ""
@@ -740,8 +838,9 @@ function Test-InstallIntegrity {
         $resultVerb = "FAILED"
     }
 
-    Write-Verbose "  [$resultIcon] Install Hash: $installHash"
-    Write-Verbose "[$resultIcon] Installation Integrity Verification Check $resultVerb for: $resolvedInstallPath"
+    Write-Verbose "$(Get-IndentString ($Indentation + 1))[$resultIcon] Install Hash: $installHash"
+    Write-Verbose "$(Get-IndentString $Indentation)[$resultIcon] Installation Integrity Verification Check $resultVerb for: $resolvedInstallPath"
+    Remove-ProgressBar
     return $result
 
 }
@@ -782,6 +881,33 @@ function Get-IndentString {
     )
 
     return ("  " * [System.Math]::Max(0, $Indentation))
+
+}
+
+function Format-Indentation {
+
+    param(
+        [Parameter(Mandatory, Position = 1, ValueFromPipeline)]
+        [string]$String,
+
+        <#
+            The indentation level to use when determining how
+            much to indent the line.
+
+            Defaults to 1. If a value less than 1 is specified,
+            an empty string will be returned.
+        #>
+        [Parameter(Mandatory, Position = 2)]
+        [int]$Indentation
+    )
+
+    [int]$baseIndentation = (
+        [regex]::Matches($String, "(^|\n+)( *)") |
+            ForEach-Object { $_.Groups[2] } |
+                Measure-Object -Property Length -Minimum
+    ).Minimum
+
+    return $String -replace "(^|\n+)( {0,$baseIndentation})","`$1$(Get-IndentString $Indentation)"
 
 }
 
@@ -984,6 +1110,130 @@ function Write-Path {
 }
 
 
+# Progress Bar #
+
+class ProgressBar {
+
+    [string]$Name
+    [int]$CurrentPercentage = 0
+    [int]$DefaultPercentageChange = 1
+    [int]$InitialSecondsRemaining = 1
+    [bool]$Hidden = $false
+    [bool]$FirstUpdate = $false
+    
+}
+
+[bool]$progressBarsEnabled = $true
+[System.Collections.Generic.Stack[ProgressBar]]$activeProgressBars = [System.Collections.Generic.Stack[ProgressBar]]::new()
+
+function Add-ProgressBar {
+
+    param(
+        [string]$Name,
+        [int]$DefaultPercentageChange,
+        [int]$InitialSecondsRemaining,
+
+        [Alias("Disabled")]
+        [switch]$Hidden
+    )
+
+    $script:activeProgressBars.Push((New-Object ProgressBar -Property $PSBoundParameters))
+    # Update-ProgressBar `
+    #     -Status "Starting Operation" `
+    #     -PercentageChange 0
+
+}
+
+function Disable-ProgressBars {
+    $script:progressBarsEnabled = $false
+}
+
+function Enable-ProgressBars {
+    $script:progressBarsEnabled = $true
+}
+
+# function Hide-ProgressBar {
+
+# }
+
+# function Show-ProgressBar {
+
+# }
+
+function Remove-ProgressBar {
+
+    param()
+
+    if ($script:activeProgressBars.Count -gt 0) {
+        Update-ProgressBar -PercentageChange 100 -Completed
+
+        $script:activeProgressBars.Pop() | Out-Null
+        # Write-Progress `
+        #     -Activity $pb.Name `
+        #     -CurrentOperation $CurrentOperation `
+        #     -Status $Status `
+        #     -PercentComplete 100 `
+        #     -SecondsRemaining 0 `
+        #     -Completed
+    }
+    
+
+}
+
+function Update-ProgressBar {
+
+    param(
+        [string]$Status,
+        [string]$CurrentOperation,
+        [Nullable[int]]$PercentageChange,
+        [switch]$Completed
+    )
+
+    if ($script:activeProgressBars.Count -gt 0) {
+        [ref]$pb = $script:activeProgressBars.Peek()
+        
+        if ($null -eq $PercentageChange) {
+            $PercentageChange = $pb.Value.DefaultPercentageChange
+        }
+        
+        [hashtable]$progressArgs = @{
+            Activity = $pb.Value.Name
+            Id = ($script:activeProgressBars.Count - 1)
+            ParentId = ($script:activeProgressBars.Count - 2)
+            Completed = ($Completed -or -not $script:progressBarsEnabled -or $pb.Value.Hidden)
+        }
+    
+        if ($pb.Value.FirstUpdate) {
+            $progressArgs["PercentComplete"] = ($pb.Value.CurrentPercentage += [Math]::Min($PercentageChange, (100 - $pb.Value.CurrentPercentage)))
+            $progressArgs["SecondsRemaining"] = ($pb.Value.InitialSecondsRemaining - (($pb.Value.CurrentPercentage / 100) * ($pb.Value.InitialSecondsRemaining - 1)))
+        }
+        else {
+            $progressArgs["PercentComplete"] = 0
+            $progressArgs["SecondsRemaining"] = $pb.Value.InitialSecondsRemaining
+            $pb.Value.FirstUpdate = $true
+        }
+    
+        if ($CurrentOperation) {
+            $progressArgs["CurrentOperation"] = $CurrentOperation
+        }
+        if ($Status) {
+            $progressArgs["Status"] = $Status
+        }
+    
+        Write-Progress @progressArgs
+
+        # if (-not $progressArgs["Completed"]) {
+        #     Start-Sleep -Milliseconds 250
+        # }
+    }
+    else {
+        throw "No Progress Bar is Currently Active!"
+    }
+
+
+}
+
+
 # Miscellaenous Helper Functions #
 
 <#
@@ -1087,26 +1337,29 @@ function Test-FilePattern {
 
     foreach ($Pattern in $Exclude) {
         if ($Path -ilike $Pattern -or $fileName -ilike $Pattern) {
-            Write-Verbose "$('  ' * $Indentation)[/] $fileType Skipped due to Matching Exclusion Pattern:"
-            Write-Verbose "$('  ' * $Indentation)  [~] ${fileType}: $Path"
-            Write-Verbose "$('  ' * $Indentation)  [#] Pattern: $Pattern"
+            Write-Verbose "$(Get-IndentString $Indentation)[/] Skipped ${fileType}: $Path"
+            Write-Verbose "$(Get-IndentString ($Indentation + 1))[#] Matched Exclusion Pattern: $Pattern"
             return $false
         }
     }
 
     if ($Include.Count -gt 0) {
-        foreach ($Pattern in $Include) {
-            if ($Path -ilike $Pattern -or $fileName -ilike $Pattern) {
-                Write-Verbose "$('  ' * $Indentation)[/] $fileType Included by Inclusion Pattern:"
-                Write-Verbose "$('  ' * $Indentation)  [~] ${fileType}: $Path"
-                Write-Verbose "$('  ' * $Indentation)  [#] Pattern: $Pattern"
+        foreach ($pattern in $Include) {
+            if ($Path -ilike $pattern -or $fileName -ilike $pattern) {
+                # Write-Verbose "$(Get-IndentString $Indentation)[/] Included ${fileType}: $Path"
+                # Write-Verbose "$(Get-IndentString ($Indentation + 1))[#] Matched Inclusion Pattern: $pattern"
                 return $true
             }
         }
         
-        Write-Verbose "$('  ' * $Indentation)[/] $fileType Skipped due to Non-Matching Inclusion Pattern:"
+        Write-Verbose "$('  ' * $Indentation)[/] Skipped ${fileType}: $Path"
         Write-Verbose "$('  ' * $Indentation)  [~] ${fileType}: $Path"
-        Write-Verbose "$('  ' * $Indentation)  [#] Patterns: $($Include -join ', ')"
+        Write-Verbose "$(Get-IndentString ($Indentation + 1))[>] No Match for Inclusion Patterns:"
+
+        foreach ($pattern in $Include) {
+            Write-Verbose "$(Get-IndentString ($Indentation + 2))[#] $pattern"
+        }
+
         return $false
     }
 
@@ -1115,4 +1368,4 @@ function Test-FilePattern {
 }
 
 
-Export-ModuleMember -Function * -Variable * -Alias *
+Export-ModuleMember -Function * -Variable NO_RISK_PARAMS, SETUP_FOLDER_IGNORED_FILES -Alias *
