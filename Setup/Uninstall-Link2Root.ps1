@@ -236,7 +236,11 @@ try {
                 Write-Verbose "$(_gis ($Indentation + 2))[>] Requesting User Confirmation to Proceed with Uninstallation of Install Files..."
 
                 if ($yesToAll -or $PSCmdlet.ShouldProcess(
-                    "$(_gis ($Indentation + 3))[+] Confirmation APPROVED",
+                    (_gvcpd `
+                        -WhatIfValue $WhatIfPreference `
+                        -WhatIfDescription "Uninstall Link2Root from $installLocation" `
+                        -Indentation ($Indentation + 3)
+                    ),
                     "Uninstall Link2Root from $installLocation",
                     "Confirm`nAre you sure you want to perform this action?"
                 )) {
@@ -346,7 +350,11 @@ try {
                 Write-Verbose "$(_gis ($Indentation + 2))[>] Requesting User Confirmation to Proceed with Uninstallation of PowerShell Module..."
 
                 if ($yesToAll -or $PSCmdlet.ShouldProcess(
-                    "$(_gis ($Indentation + 3))[+] Confirmation APPROVED",
+                    (_gvcpd `
+                        -WhatIfValue $WhatIfPreference `
+                        -WhatIfDescription "Uninstall Link2Root PowerShell Module from $modulesLocation" `
+                        -Indentation ($Indentation + 3)
+                    ),
                     "Uninstall Link2Root PowerShell Module from $modulesLocation",
                     "Confirm`nAre you sure you want to perform this action?"
                 )) {
@@ -474,7 +482,11 @@ try {
                 Write-Verbose "$(_gis ($Indentation + 2))[>] Requesting User Confirmation to Proceed with User PATH Update..."
                 
                 if ($yesToAll -or $PSCmdlet.ShouldProcess(
-                    "$(_gis ($Indentation + 3))[+] Confirmation APPROVED",
+                    (_gvcpd `
+                        -WhatIfValue $WhatIfPreference `
+                        -WhatIfDescription "Remove $installLocation from $username's PATH" `
+                        -Indentation ($Indentation + 3)
+                    ),
                     "Remove $installLocation from $username's PATH",
                     "Confirm`nAre you sure you want to perform this action?"
                 )) {

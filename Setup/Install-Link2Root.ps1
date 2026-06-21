@@ -712,7 +712,11 @@ try {
                     Write-Verbose "$(_gis ($Indentation + 2))[>] Requesting User Confirmation to Proceed with $(Get-InstallVerb -Installer)ation of Link2Root Files..."
             
                     if ($yesToAll -or $PSCmdlet.ShouldProcess(
-                        "$(_gis ($Indentation + 3))[+] Confirmation APPROVED",
+                        (_gvcpd `
+                            -WhatIfValue $WhatIfPreference `
+                            -WhatIfDescription "$(Get-InstallVerb) Link2Root in $installLocation" `
+                            -Indentation ($Indentation + 3)
+                        ),
                         "$(Get-InstallVerb) Link2Root in $installLocation",
                         "Confirm`nAre you sure you want to perform this action?"
                     )) {
@@ -897,7 +901,11 @@ try {
                     Write-Verbose "$(_gis ($Indentation + 2))[>] Requesting User Confirmation to Proceed with $(Get-InstallVerb -Installer)ation of PowerShell Module..."
             
                     if ($yesToAll -or $PSCmdlet.ShouldProcess(
-                        "$(_gis ($Indentation + 3))[+] Confirmation APPROVED",
+                        (_gvcpd `
+                            -WhatIfValue $WhatIfPreference `
+                            -WhatIfDescription "$(Get-InstallVerb) Link2Root PowerShell Module in $modulesLocation" `
+                            -Indentation ($Indentation + 3)
+                        ),
                         "$(Get-InstallVerb) Link2Root PowerShell Module in $modulesLocation",
                         "Confirm`nAre you sure you want to perform this action?"
                     )) {
@@ -1129,7 +1137,11 @@ try {
                     Write-Verbose "$(_gis ($Indentation + 2))[>] Requesting User Confirmation to Proceed with Modifying User PATH..."
                     
                     if ($yesToAll -or $PSCmdlet.ShouldProcess(
-                        "$(_gis ($Indentation + 3))[+] Confirmation APPROVED",
+                        (_gvcpd `
+                            -WhatIfValue $WhatIfPreference `
+                            -WhatIfDescription "${installVerb} Link2Root to $username's PATH" `
+                            -Indentation ($Indentation + 3)
+                        ),
                         "$installVerb $installLocation to $username's PATH",
                         "Confirm`nAre you sure you want to perform this action?"
                     )) {

@@ -1571,6 +1571,68 @@ function Update-ProgressBar {
 
 <#
     .SYNOPSIS
+    Get the Dynamic Verbose Description for a Confirmation Prompt
+
+    .DESCRIPTION
+    Get the Verbose Description for a PowerShell Confirmation Prompt, which is
+    generated dynamically based on the `-WhatIfValue` passed to the function.
+
+    .INPUTS
+    None.
+    You cannot pipe any objects to `Get-VerboseConfirmationPromptDescription`.
+
+    .OUTPUTS
+    String.
+    `Get-VerboseConfirmationPromptDescription` returns a string to be used
+    as the Verbose Description for a PowerShell Confirmation Prompt.
+
+    .EXAMPLE
+    if ($PSCmdlet.ShouldProcess(
+        (Get-VerboseConfirmationPromptDescription `
+            -Value $WhatIfPreference `
+            -Description "Copying Install Files" `
+            -Indent 2
+        ),
+        "Copy Install Files",
+        "Confirm`nAre you sure you want to perform this action?"
+    )) {
+        // ...    
+    }
+#>
+function Get-VerboseConfirmationPromptDescription {
+
+    [Alias("_gvcpd")]
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        <#
+            The value of the `$WhatIfPreference` Preference Variable.
+        #>
+        [Alias("Value")]
+        [Parameter(Mandatory, Position = 0)]
+        [bool]$WhatIfValue,
+
+        <#
+            The description to use if the `-WhatIfValue` is `$true`.
+        #>
+        [Alias("Description")]
+        [Parameter(Position = 1)]
+        [string]$WhatIfDescription,
+        
+        <#
+            The indentation level to use when the `-WhatIfValue` is `$false`.
+        #>
+        [Alias("Indent")]
+        [Parameter(Position = 2)]
+        [int]$Indentation = 5
+    )
+
+    if (-not $WhatIfValue) { return "$(_gis $Indentation)[+] Confirmation APPROVED" }
+    else                   { return "$WhatIfDescription" }
+
+}
+
+<#
+    .SYNOPSIS
     Get the Current User's FQDN.
 
     .DESCRIPTION
