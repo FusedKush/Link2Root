@@ -6,13 +6,18 @@
     Uninstall Link2Root from the current machine for the current user.
 
     Note that you will always be prompted for confirmation before
-    beginning the uninstallation. If needed, you can skip the confirmation
-    using the `-Force` switch.
+    beginning the uninstallation. If needed, the confirmation can be
+    skipped using the `-Force` switch.
 
     You can also specify which individual components for Link2Root are
     to be removed. To do so, you can either use the `-Confirm` switch
     and manually skip the necessary components, or use the `-KeepInstall`,
     `-KeepModule`, and `-KeepPATH` switches.
+
+    By default, the progress and results of the uninstallation will be printed
+    to the console, as well as visualized using a progress bar. To control this
+    behavior and disable output logging and/or progress bars, use the `-Silent`,
+    `-NoOutput`, and `-NoProgress` switches.
 
     .INPUTS
     You cannot pipe any objects to `Uninstall-Link2Root.ps1`.
@@ -69,24 +74,53 @@ param(
         each individual component is uninstalled.
     #>
     [switch]$Force,
-
-    <#
-        Suppress all non-error output.
-
-        By default and when this switch is omitted, information will
-        be output to the host indicating the progress and status
-        of the uninstallation and the individual components for Link2Root.
-    #>
-    [Parameter(ParameterSetName = "WithoutOutputOrProgress", Mandatory)]
-    [switch]$Silent,
     
+    <#
+        Indicates that no output should be printed to the terminal
+        by the script.
+
+        By default and when neither this switch nor `-Silent` are used,
+        the status and results of the script are printed to the terminal.
+
+        Has no effect on progress bars or verbose output. To control the behavior
+        of Progress Bars, use the `-NoProgress` or `-Silent` switch.
+    #>
     [Parameter(ParameterSetName = "WithoutOutput", Mandatory)]
     [switch]$NoOutput,
 
+    <#
+        Indicates that no progress bars should be rendered
+        in the terminal by the script.
+
+        By default and when neither this switch nor `-Silent` are used,
+        the status and progress of the script is reflected in one or
+        more progress bars rendered within the terminal.
+
+        Has no effect on progress bars created by built-in functions and cmdlets.
+        To control the behavior of all PowerShell progress bars, use the
+        `$ProgressPreference` automatic variable.
+    #>
     [Alias("HideProgress")]
     [Parameter(ParameterSetName = "WithOutput")]
     [Parameter(ParameterSetName = "WithoutOutput")]
     [switch]$NoProgress,
+
+    <#
+        Indicates that no output or progress bars should be displayed
+        in the terminal by the script.
+
+        This switch is simply a shorthand for both `-NoOutput` and `-NoProgress`.
+
+        By default and when neither this switch, nor the `-NoOutput` and `-NoProgress`
+        switches, are used, the status, progress, and results of the script are
+        reflected in output and progress bars displayed in the terminal.
+
+        Has no effect on verbose output or progress bars created by built-in
+        functions and cmdlets. To control the behavior of all PowerShell progress bars,
+        use the `$ProgressPreference` automatic variable.
+    #>
+    [Parameter(ParameterSetName = "WithoutOutputOrProgress", Mandatory)]
+    [switch]$Silent,
 
     <#
         Indicates that this function should return a boolean value
@@ -97,9 +131,14 @@ param(
     #>
     [switch]$PassThru,
 
+    <#
+        An internal parameter used to flag that the script is being
+        invoked internally, which is used to optimize the behavior
+        of the script for internal calls.
+    #>
     [Alias("Reinstall", "Rollback")]
     [Parameter(DontShow)]
-    [switch]$Install,
+    [switch]$Internal,
 
     <#
         An internal parameter used to specify the indentation
@@ -109,14 +148,18 @@ param(
     [int]$Indentation = 0
 )
 
+Import-Module "$PSScriptRoot\Utils.psm1" -Verbose:($VerbosePreference -and -not $Internal)
 
-Import-Module "$PSScriptRoot\Utils.psm1" -Verbose:($VerbosePreference -and -not $Install)
+
+# Script Variables #
 
 [bool]$success = $false
 [bool]$failed = $false
 [bool]$yesToAll = $false
 [bool]$noToAll = $false
 
+
+# Main Script #
 
 $ErrorActionPreference = "Stop"
 
@@ -146,9 +189,11 @@ try {
     Add-ProgressBar -Name "Uninstalling Link2Root" -DefaultPercentageChange 25 -InitialSecondsRemaining 3
     _upb -Status "Check Current Installation Status"
 
+
+    # Check if Link2Root is already installed
     Write-Verbose "$(_gis ($Indentation + 1))[>] Checking for Uninstallation Eligibility..."
 
-    if (-not $Install) {
+    if (-not $Internal) {
         if (-not (& "$PSScriptRoot\Test-Link2RootInstall.ps1" @installTestArgs)) {
             Write-Verbose "$(_gis ($Indentation + 1))[-] Ineligible for Uninstallation"
             Write-Verbose "$(_gis $Indentation)[-] Link2Root Uninstallation Aborted."
@@ -160,8 +205,8 @@ try {
                 Write-Host "Not Currently Installed!" -ForegroundColor DarkYellow
             }
         
-            if ($PassThru)  { return $false }
-            else            { return }
+            if ($PassThru) { return $false }
+            else           { return }
         }
     }
     else {
@@ -169,16 +214,20 @@ try {
     }
 
     Write-Verbose "$(_gis ($Indentation + 1))[+] Eligible for Uninstallation"
+
+
+    # Prompt for confirmation unless -Force is used and
+    # proceed with the uninstallation of Link2Root
     Write-Verbose "$(_gis ($Indentation + 1))[>] Requesting User Confirmation to Proceed with Uninstallation..."
     
     if ($Force -or $PSCmdlet.ShouldContinue("Uninstall Link2Root for $(Get-FullyQualifiedUsername)", "Confirm", [ref]$yesToAll, [ref]$noToAll)) {
         if (-not $Force)    { Write-Verbose "$(_gis ($Indentation + 1))[+] User Approved Confirmation." }
         else                { Write-Verbose "$(_gis ($Indentation + 1))[+] Confirmation Automatically Approved via -Force Flag." }
 
-        [string]$installLocation = & "$PSScriptRoot\Get-Link2RootInstall.ps1" -Internal:$Install
+        [string]$installLocation = & "$PSScriptRoot\Get-Link2RootInstall.ps1" -Internal:$Internal
 
         
-        # Uninstall the script in the current user's local appdata folder
+        # Uninstall the script from the current user's local appdata folder
         Write-Verbose "$(_gis ($Indentation + 1))[>] Removing Installation Files..."
         _upb -Status "Remove Install Files" -CurrentOperation "Check Uninstall Status" -PercentageChange 0
         
@@ -282,12 +331,15 @@ try {
         }
         
 
-        # Uninstall the module in the current user's PowerShell Modules folder
+        # Uninstall the module from the current user's PowerShell Modules folder
         Write-Verbose "$(_gis ($Indentation + 1))[>] Removing PowerShell Module..."
         _upb -Status "Remove PowerShell Module" -CurrentOperation "Check Uninstall Status" -PercentageChange 0
         
         if (-not $KeepModule) {
-            [string]$modulePath = & "$PSScriptRoot\Get-Link2RootInstall.ps1" -GetModulePath -Internal:$Install -Indentation ($Indentation + 2)
+            [string]$modulePath = & "$PSScriptRoot\Get-Link2RootInstall.ps1" `
+                -GetModulePath `
+                -Internal:$Internal `
+                -Indentation ($Indentation + 2)
             [string]$modulesLocation = Split-Path $modulePath -Parent
             
             if (Test-Path $modulePath) {
@@ -454,7 +506,7 @@ try {
                         _upb -Status "Update User PATH" -CurrentOperation "Operation Completed Successfully"
                         $success = $true
                         
-                        if (-not $NoOutput) {    
+                        if (-not $NoOutput) {
                             _wcp -Success
                             Write-Host "Successfully removed " -NoNewline -ForegroundColor Green
                             _wc "Link2Root" -NoNewline
@@ -524,16 +576,17 @@ try {
                 _wp "$username's PATH"
             }
         }
-
-
-        if (-not $success -and -not $failed)    { Write-Verbose "$(_gis $Indentation)[/] No Changes Made by the Link2Root Uninstaller" }
-        else                                    { Write-Verbose "$(_gis $Indentation)[+] Link2Root Uninstaller Completed Successfully" }
     }
     else {
         Write-Verbose "$(_gis ($Indentation + 1))[-] User Rejected Confirmation."
         Write-Verbose "$(_gis $Indentation)[-] Link2Root Uninstallation Aborted."
     }
 
+
+    # Cleanup and print and/or return the results
+    if (-not $success -and -not $failed)    { Write-Verbose "$(_gis $Indentation)[/] No Changes Made by the Link2Root Uninstaller" }
+    else                                    { Write-Verbose "$(_gis $Indentation)[+] Link2Root Uninstaller Completed Successfully" }
+    
     _upb -Status "Uninstallation Complete" -PercentageChange 100
     
     if (-not $NoOutput) {
