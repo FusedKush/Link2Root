@@ -34,39 +34,24 @@
 [CmdletBinding(DefaultParameterSetName = "WithPATHUpdate", SupportsShouldProcess)]
 param(
     <#
-        Skip the installation of Link2Root in the
-        current user's `AppData/Local` folder.
+        The individual components of Link2Root to be installed.
 
-        Using this option will prevent you from being able to use
-        Link2Root without having to move or navigate to the
-        downloaded `Link2Root/` folder.
-
-        When this switch is used, `-SkipPATHUpdate` is implicitly
-        included as well.
+        If no components are specified, all of the
+        Default Setup Components will be installed.
     #>
-    [switch]$SkipScriptInstall,
-    
-    <#
-        Skip the installation of the Link2Root PowerShell Module
-        in the current user's PowerShell Modules.
-
-        Using this option will prevent you from being able to use
-        `Link2Root` and `LinkThis2Root` without importing them into
-        the PowerShell session or script.
-    #>
-    [switch]$SkipModuleInstall,
-    
-    <#
-        Skip updating the current user's `PATH` to
-        add the Link2Root Installation Directory.
-
-        Using this option will prevent you from being able to use
-        the `Link2Root` command without having to move or navigate to
-        the downloaded `Link2Root/` folder.
-
-        This switch has no effect when the `-SkipScriptInstall` switch is used.
-    #>
-    [switch]$SkipPATHUpdate,
+    [ArgumentCompleter({
+        Import-Module "$PSScriptRoot\Utils.psm1" -Function Get-SetupComponentArgumentCompletions
+        Get-SetupComponentArgumentCompletions @args
+    })]
+    [Parameter(Position = 0)]
+    [ValidateScript({
+        Import-Module "$PSScriptRoot\Utils.psm1" -Function Test-SetupComponentParameter
+        $_ | Test-SetupComponentParameter
+    })]
+    [string[]]$Components = (& {
+        Import-Module "$PSScriptRoot\Utils.psm1" -Function Get-SetupComponents
+        Get-SetupComponents -Filter Default
+    }),
 
     <#
         Indicates that all of the specified components of Link2Root
@@ -378,7 +363,7 @@ function Copy-ToTemporaryFolder {
                     
                     Write-Verbose "$(_gis ($Indentation + $InnerIndentation + 5))[>] Copying Directory: $resolvedPath"
                     Copy-ToTemporaryFolder `
-                        -Path (Get-ChildItem $resolvedPath -Filter $Filter).FullName `
+                        -Patterns (Get-ChildItem $resolvedPath -Filter $Filter).FullName `
                         -Destination $newDestination `
                         -Filter $Filter `
                         -Include $Include `
@@ -688,7 +673,7 @@ try {
 
         # Prompt for confirmation unless -Force is used and
         # proceed with the installation of Link2Root
-        Write-Verbose "$(_gis ($Indentation + 1))[>] Requesting User Confirmation to Proceed with $(Get-InstallVerb -)ation..."
+        Write-Verbose "$(_gis ($Indentation + 1))[>] Requesting User Confirmation to Proceed with $(Get-InstallVerb -Installer)ation..."
     
         if ($Force -or $PSCmdlet.ShouldContinue("$(Get-InstallVerb -Installer) Link2Root for $(Get-FullyQualifiedUsername)", "Confirm", [ref]$yesToAll, [ref]$noToAll)) {
             if (-not $Force)    { Write-Verbose "$(_gis ($Indentation + 1))[+] User Approved Confirmation." }
@@ -707,7 +692,9 @@ try {
                 else                         { return "Reinstall" }
             }) | Set-InstallVerb
 
-            if (-not $SkipScriptInstall) {
+            if ($Components -icontains "LocalInstall") {
+                Write-Verbose "$(_gis ($Indentation + 2))[+] 'LocalInstall' Component Included in Install"
+
                 if (-not $scriptIsInstalled -or $Reinstall) {
                     Write-Verbose "$(_gis ($Indentation + 2))[>] Requesting User Confirmation to Proceed with $(Get-InstallVerb -Installer)ation of Link2Root Files..."
             
@@ -739,20 +726,20 @@ try {
                             $tempFolder = New-TemporaryFolder
                             [hashtable[]]$copyFileArgs = @(
                                 @{
-                                    Path = @(
+                                    Patterns = @(
                                         "$PSScriptRoot\..\Link*Root.*",
                                         "$PSScriptRoot\..\README.md"
                                     )
                                     Destination = $tempFolder
                                 },
                                 @{
-                                    Path = $PSScriptRoot
+                                    Patterns = $PSScriptRoot
                                     Destination = $tempFolder
                                     Name = "Installation"
                                     Exclude = $SETUP_FOLDER_IGNORED_FILES
                                 },
                                 @{
-                                    Path = "$PSScriptRoot\..\Scripts"
+                                    Patterns = "$PSScriptRoot\..\Scripts"
                                     Destination = $tempFolder
                                 }
                             )
@@ -793,8 +780,7 @@ try {
                                 & "$PSScriptRoot\Uninstall-Link2Root.ps1" `
                                     -Reinstall `
                                     -Force `
-                                    -KeepModule `
-                                    -KeepPATH `
+                                    -Components LocalInstall `
                                     -NoOutput `
                                     -NoProgress:$NoProgress `
                                     -Verbose:$VerbosePreference `
@@ -873,7 +859,7 @@ try {
                 }
             }
             else {
-                Write-Verbose "$(_gis ($Indentation + 2))[-] -SkipScriptInstall Flag Passed to Installation Script"
+                Write-Verbose "$(_gis ($Indentation + 2))[-] 'LocalInstall' Component Excluded from Install"
                 Write-Verbose "$(_gis ($Indentation + 1))[-] Link2Root Files were NOT Copied"
                 _upb -Status "Copy Link2Root Files" -CurrentOperation "Action Skipped"
 
@@ -896,7 +882,9 @@ try {
                 else                         { return "Reinstall" }
             }) | Set-InstallVerb
 
-            if (-not $SkipModuleInstall) {
+            if ($Components -icontains "PowerShellModule") {
+                Write-Verbose "$(_gis ($Indentation + 2))[+] 'PowerShellModule' Component Included in Install"
+
                 if (-not $moduleIsInstalled -or $Reinstall) {
                     Write-Verbose "$(_gis ($Indentation + 2))[>] Requesting User Confirmation to Proceed with $(Get-InstallVerb -Installer)ation of PowerShell Module..."
             
@@ -938,7 +926,7 @@ try {
                             # Copy the module files to the temporary folder
                             Write-Verbose "$(_gis ($Indentation + 2))[>] Copy Installation Files to Temporary Directory..."
                             _upb -Status "Install PowerShell Module" -CurrentOperation "Copy PowerShell Module Files" -PercentageChange 5
-                            Copy-ToTemporaryFolder -Path "$PSScriptRoot\..\Link2Root.ps?1" -Destination $tempFolder
+                            Copy-ToTemporaryFolder -Patterns "$PSScriptRoot\..\Link2Root.ps?1" -Destination $tempFolder
                             Write-Verbose "$(_gis ($Indentation + 2))[+] Copied Installation Files to Temporary Directory"
                             
                             
@@ -985,8 +973,7 @@ try {
                                     _upb -Status "Install PowerShell Module" -CurrentOperation "Remove Existing Files" -PercentageChange 0
                                     & "$PSScriptRoot\Uninstall-Link2Root.ps1" `
                                         -Reinstall `
-                                        -KeepInstall `
-                                        -KeepPATH `
+                                        -Components PowerShellModule `
                                         -NoOutput `
                                         -NoProgress:$NoProgress `
                                         -Force `
@@ -1110,7 +1097,7 @@ try {
                 }
             }
             else {
-                Write-Verbose "$(_gis ($Indentation + 2))[-] -SkipModuleInstall Flag Passed to Installation Script"
+                Write-Verbose "$(_gis ($Indentation + 2))[-] 'PowerShellModule' Component Excluded from Install"
                 Write-Verbose "$(_gis ($Indentation + 1))[-] PowerShell Module was NOT Installed"
                 _upb -Status "Install PowerShell Module" -CurrentOperation "Action Skipped"
 
@@ -1132,7 +1119,9 @@ try {
                 else                     { return "Re-Add" }
             }
             
-            if (-not $SkipPATHUpdate) {
+            if ($Components -icontains "PATHUpdate") {
+                Write-Verbose "$(_gis ($Indentation + 2))[+] 'PATHUpdate' Component Included in Install"
+
                 if (-not $isAddedToPATH -or $Reinstall) {
                     Write-Verbose "$(_gis ($Indentation + 2))[>] Requesting User Confirmation to Proceed with Modifying User PATH..."
                     
@@ -1162,8 +1151,7 @@ try {
                             & "$PSScriptRoot\Uninstall-Link2Root.ps1" `
                                 -Reinstall `
                                 -Force `
-                                -KeepInstall `
-                                -KeepModule `
+                                -Components PATHUpdate `
                                 -NoOutput `
                                 -NoProgress:$NoProgress `
                                 -Verbose:$VerbosePreference `
@@ -1184,7 +1172,7 @@ try {
         
                         if (-not $NoOutput) {
                             _wcp -Success
-                            Write-Host "Successfully $(Get-InstallVerb -lc)ed " -NoNewline -ForegroundColor Green
+                            Write-Host "Successfully ${installVerb}ed " -NoNewline -ForegroundColor Green
                             _wc "Link2Root" -NoNewline
                             Write-Host " to " -NoNewline
                             _wp "$username's PATH"
@@ -1221,7 +1209,7 @@ try {
                 }
             }
             else {
-                Write-Verbose "$(_gis ($Indentation + 2))[-] -SkipPATHUpdate Flag Passed to Installation Script"
+                Write-Verbose "$(_gis ($Indentation + 2))[-] 'PATHUpdate' Component Excluded from Install"
                 Write-Verbose "$(_gis ($Indentation + 1))[-] User PATH was NOT Modified"
                 _upb -Status "Install PowerShell Module" -CurrentOperation "Action Skipped"
 

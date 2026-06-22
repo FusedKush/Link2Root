@@ -1567,6 +1567,276 @@ function Update-ProgressBar {
 }
 
 
+# Setup Components #
+
+<#
+    An enumeration defining the individual components
+    that can be installed, tested, and uninstalled
+    during the Link2Root Setup.
+#>
+enum SetupComponent {
+    LocalInstall
+    PowerShellModule
+    PATHUpdate
+}
+[psobject].Assembly.GetType("System.Management.Automation.TypeAccelerators")::Add(
+    "link2rootSetupComponent",
+    [SetupComponent]
+)
+
+<#
+    .SYNOPSIS
+    Get Setup Component Argument Completion Suggestions.
+
+    .DESCRIPTION
+    Get the Setup Component Argument Completion Suggestions
+    for a Setup Function or Cmdlet.
+
+    This function serves as an `ArgumentCompleter` for the
+    `-Components` Parameter added to Setup Functions and Cmdlets.
+
+    .INPUTS
+    None.
+    You cannot pipe any objects to `Get-SetupComponentArgumentCompletions`.
+
+    .OUTPUTS
+    string
+    `Get-SetupComponentArgumentCompletions` returns a
+    Setup Component Argument Completion Suggestion.
+
+    .EXAMPLE
+    [ArgumentCompleter({
+        Import-Module "$PSScriptRoot\Utils.psm1" -Function Get-SetupComponentArgumentCompletions
+        Get-SetupComponentArgumentCompletions @args
+    })]
+    [string[]]$Components
+
+    .LINK
+    Get-SetupComponents
+
+    .Link
+    Test-SetupComponent
+
+    .Link
+    Test-SetupComponentParameter
+#>
+function Get-SetupComponentArgumentCompletions {
+
+    param (
+        <#
+            The name of the command for which the function
+            is providing tab completion.
+        #>
+        [string]$commandName,
+        
+        <#
+            The parameter whose value requires tab completion.
+        #>
+        [string]$parameterName,
+
+        <#
+            The value the user has provided before they pressed `Tab`.
+        #>
+        [string]$wordToComplete,
+
+        <#
+            The Abstract Syntax Tree (AST) for the current input line.
+        #>
+        [System.Management.Automation.Language.Ast]$commandAst,
+
+        <#
+            A hashtable containing the `$PSBoundParameters` for the cmdlet,
+            before the user pressed `Tab`. 
+        #>
+        [hashtable]$fakeBoundParameters
+    )
+    
+    $components = Get-SetupComponents
+    $suggestions = @(@(), @(), @())
+    
+    if ($fakeBoundParameters.ContainsKey("Components")) {
+        $components = (Compare-Object $components $fakeBoundParameters["Components"]).InputObject
+    }
+
+    foreach ($component in $components) {
+        if ($component -ine $wordToComplete) {
+            if ($component -ilike "$wordToComplete*") {
+                $suggestions[0] += $component
+            }
+            elseif ($component[0].ToString().ToLower() -lt $wordToComplete[0].ToString().ToLower()) {
+                $suggestions[2] += $component
+            }
+            else {
+                $suggestions[1] += $component
+            }
+        }
+    }
+
+    $suggestions | ForEach-Object { $_ } | ForEach-Object { $_ }
+    
+}
+
+<#
+    .SYNOPSIS
+    Get the Link2Root Setup Components.
+
+    .DESCRIPTION
+    Get a list of the individual components that can be
+    installed, tested, and uninstalled during the Link2Root Setup.
+
+    By default, all of the available Setup Components are returned.
+    To filter the list of Setup Components, use the `-Filter` parameter.
+
+    .INPUTS
+    None.
+    You cannot pipe any objects to `Get-SetupComponents`.
+
+    .OUTPUTS
+    SetupComponent[]
+    `Get-SetupComponents` returns an array of `SetupComponent` enumeration values
+    representing the various Link2Root Setup Components matching the designated `-Filter` (if specified.)
+
+    .EXAMPLE
+    [string[]]$Components = (& {
+        Import-Module "$PSScriptRoot\Utils.psm1" -Function Get-SetupComponents
+        Get-SetupComponents -Filter Default
+    })
+
+    .LINK
+    Get-SetupComponentArgumentCompletions
+
+    .Link
+    Test-SetupComponent
+
+    .Link
+    Test-SetupComponentParameter
+#>
+function Get-SetupComponents {
+
+    [OutputType([SetupComponent[]])]
+    param(
+        <#
+            Optionally filter the returned Setup Components.
+
+            The available options include:
+            - "Default": The Setup Components installed, tested, and uninstalled by default.
+            - "Non-Default": All of the Setup Components that are NOT installed, tested, and uninstalled by default.
+        #>
+        [ValidateSet("Default", "Non-Default")]
+        [string]$Filter
+    )
+
+    $components = [System.Enum]::GetNames([SetupComponent])
+
+    if ($Filter -ieq "Default")         { return $components }
+    elseif ($Filter -ieq "Non-Default") { return @() }
+    else                                { return $components }
+
+}
+
+<#
+    .SYNOPSIS
+    Test if a string is a valid Link2Root Setup Component.
+
+    .DESCRIPTION
+    Test if a string can be converted to a valid
+    `SetupComponent` enumeration value corresponding
+    to a Link2Root Setup Component.
+
+    .INPUTS
+    None.
+    You cannot pipe any objects to `Test-SetupComponent`.
+
+    .OUTPUTS
+    bool.
+    `Test-SetupComponent` returns `$true` if the specified string
+    is a valid Link2Root Setup Component or `$false` if it is not.
+
+    .Link
+    Test-SetupComponentParameter
+
+    .Link
+    Get-SetupComponents
+    
+    .LINK
+    Get-SetupComponentArgumentCompletions
+
+#>
+function Test-SetupComponent {
+
+    param(
+        <#
+            The value being tested.
+        #>
+        [Parameter(Position = 0)]
+        [string]$Value
+    )
+
+    process {
+        [System.Enum]::IsDefined([SetupComponent], $Value)
+    }
+
+}
+
+<#
+    .SYNOPSIS
+    Test if a string parameter value matches a valid Link2Root Setup Component.
+
+    .DESCRIPTION
+    Test if a string parameter value can be converted to a valid
+    `SetupComponent` enumeration value corresponding
+    to a Link2Root Setup Component.
+
+    .INPUTS
+    string.
+    You can pipe the string parameter value
+    to be tested to `Test-SetupComponentParameter`.
+
+    .OUTPUTS
+    bool.
+    `Test-SetupComponentParameter` returns `$true` if the specified string
+    parameter value is a valid Link2Root Setup Component or `$false` if it is not.
+
+    .EXAMPLE
+    [ValidateScript({
+        Import-Module "$PSScriptRoot\Utils.psm1" -Function Test-SetupComponentParameter
+        $_ | Test-SetupComponentParameter
+    })]
+    [string[]]$Components
+
+    .Link
+    Test-SetupComponent
+
+    .Link
+    Get-SetupComponents
+    
+    .LINK
+    Get-SetupComponentArgumentCompletions
+#>
+function Test-SetupComponentParameter {
+
+    [OutputType([bool])]
+    param(
+        <#
+            The string parameter value being tested.
+        #>
+        [Parameter(Position = 0, ValueFromPipeline)]
+        [string]$Component
+    )
+
+    process {
+        if (-not (Test-SetupComponent $component)) {
+            throw "Unrecognized Setup Component Specified: $component"
+        }
+    }
+
+    end {
+        return $true
+    }
+
+}
+
+
 # Miscellaenous Helper Functions #
 
 <#
@@ -1679,7 +1949,7 @@ function Test-FilePattern {
     [CmdletBinding(PositionalBinding = $false)]
     param(
         <#
-            The path or paths to be tested.
+            The path to be tested.
         #>
         [Parameter(Mandatory, Position = 0, ValueFromPipeline)]
         [string]$Path,
@@ -1693,6 +1963,7 @@ function Test-FilePattern {
             The filter string is passed to the .NET API to enumerate files.
             The API only supports * and ? wildcards.
         #>
+        [SupportsWildcards()]
         [string]$Filter,
 
         <#
@@ -1702,6 +1973,7 @@ function Test-FilePattern {
             
             Enter a path element or pattern, such as *.txt. Wildcard characters are permitted.
         #>
+        [SupportsWildcards()]
         [string[]]$Include,
 
         <#
@@ -1711,6 +1983,7 @@ function Test-FilePattern {
             
             Enter a path element or pattern, such as *.txt. Wildcard characters are permitted.
         #>
+        [SupportsWildcards()]
         [string[]]$Exclude,
 
         <#

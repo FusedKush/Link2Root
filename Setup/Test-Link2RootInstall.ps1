@@ -74,10 +74,24 @@
 [CmdletBinding(DefaultParameterSetName = "WithOutput", PositionalBinding = $false)]
 param(
     <#
-        Indicates that the existence of the
-        Link2Root Installation Directory should be tested.
+        The individual components of the Link2Root Installation to be tested.
+
+        If no components are specified, all of the
+        Default Setup Components will be tested.
     #>
-    [switch]$TestInstall,
+    [ArgumentCompleter({
+        Import-Module "$PSScriptRoot\Utils.psm1" -Function Get-SetupComponentArgumentCompletions
+        Get-SetupComponentArgumentCompletions @args
+    })]
+    [Parameter(Position = 0)]
+    [ValidateScript({
+        Import-Module "$PSScriptRoot\Utils.psm1" -Function Test-SetupComponentParameter
+        $_ | Test-SetupComponentParameter
+    })]
+    [string[]]$Components = (& {
+        Import-Module "$PSScriptRoot\Utils.psm1" -Function Get-SetupComponents
+        Get-SetupComponents -Filter Default
+    }),
 
     <#
         Skip checking the integrity of the Link2Root Installation Directory.
@@ -91,12 +105,6 @@ param(
         Link2Root Installation Directory itself.
     #>
     [switch]$SkipInstallIntegrityCheck,
-    
-    <#
-        Indicates that the existence of the
-        Link2Root PowerShell Module should be tested.
-    #>
-    [switch]$TestModule,
 
     <#
         Skip checking the integrity of the Link2Root PowerShell Module.
@@ -110,12 +118,6 @@ param(
         Link2Root Installation Directory.
     #>
     [switch]$SkipModuleIntegrityCheck,
-    
-    <#
-        Indicates that the existence of the Link2Root Installation Directory
-        in the current user's PATH should be tested.
-    #>
-    [switch]$TestPATH,
 
     <#
         Indicates that the existence of any specified component should
@@ -248,9 +250,6 @@ function Update-TestResult {
 
 # Main Script #
 
-if (-not ($TestInstall -or $TestModule -or $TestPATH)) {
-    $TestInstall = $TestModule = $TestPATH = $true
-}
 if ($Silent) {
     $NoOutput = $NoProgress = $true
 }
@@ -262,9 +261,10 @@ Add-ProgressBar -Name "Checking Link2Root Installation Status" -DefaultPercentag
 
 # Check for the presence and validity of the Link2Root Installation Files
 _upb -Status "Check Install Status" -CurrentOperation "Checking Status..." -PercentageChange 0
+Write-Verbose "$(_gis ($Indentation + 1))[>] Checking Current Install Status..."
 
-if ($TestInstall) {
-    Write-Verbose "$(_gis ($Indentation + 1))[>] Checking Current Install Status..."
+if ($Components -icontains "LocalInstall") {
+    Write-Verbose "$(_gis ($Indentation + 2))[+] 'LocalInstall' Component Included in Test"
 
     if (Test-Path $installLocation -Type Container) {
         [hashtable]$mainCheckArgs = @{
@@ -334,6 +334,7 @@ if ($TestInstall) {
     }
 }
 else {
+    Write-Verbose "$(_gis ($Indentation + 2))[-] 'LocalInstall' Component Excluded from Test"
     Write-Verbose "$(_gis ($Indentation + 1))[/] Skipping Current Install Status Check"
     _upb -Status "Check Install Status" -CurrentOperation "Component Test Skipped"
 }
@@ -341,9 +342,10 @@ else {
 
 # Check for the presence and validity of the Link2Root PowerShell Module
 _upb -Status "Check PowerShell Module Status" -CurrentOperation "Checking Status..." -PercentageChange 0
+Write-Verbose "$(_gis ($Indentation + 1))[>] Checking Current PowerShell Module Status..."
 
-if ($TestModule) {
-    Write-Verbose "$(_gis ($Indentation + 1))[>] Checking Current PowerShell Module Status..."
+if ($Components -icontains "PowerShellModule") {
+    Write-Verbose "$(_gis ($Indentation + 2))[+] 'PowerShellModule' Component Included in Test"
     
     [string]$modulePath = (
         & "$PSScriptRoot\Get-Link2RootInstall.ps1" `
@@ -412,6 +414,7 @@ if ($TestModule) {
     }
 }
 else {
+    Write-Verbose "$(_gis ($Indentation + 2))[-] 'PowerShellModule' Component Excluded from Test"
     Write-Verbose "$(_gis ($Indentation + 1))[/] Skipping Current PowerShell Module Status Check"
     _upb -Status "Check PowerShell Module Status" -CurrentOperation "Component Test Skipped" -PercentageChange 20
 }
@@ -419,11 +422,12 @@ else {
 
 # Check for the presence of Link2Root in the User's PATH
 _upb -Status "Check PATH Status" -CurrentOperation "Checking Status..." -PercentageChange 0
+Write-Verbose "$(_gis ($Indentation + 1))[>] Checking Current PATH..."
 
-if ($TestPATH) {
+if ($Components -icontains "PATHUpdate") {
     [string]$username = Get-FullyQualifiedUsername
-
-    Write-Verbose "$(_gis ($Indentation + 1))[>] Checking Current PATH..."
+    
+    Write-Verbose "$(_gis ($Indentation + 2))[+] 'PATHUpdate' Component Included in Test"
     
     if (Test-UserPATH $installLocation -Indentation ($Indentation + 2) -Verbose:$VerbosePreference) {
         Write-Verbose "$(_gis ($Indentation + 1))[+] Current PATH Status: FOUND"
@@ -454,6 +458,7 @@ if ($TestPATH) {
     }
 }
 else {
+    Write-Verbose "$(_gis ($Indentation + 2))[-] 'PATHUpdate' Component Excluded from Test"
     Write-Verbose "$(_gis ($Indentation + 1))[/] Skipping Current PATH Check"
     _upb -Status "Check PATH Status" -CurrentOperation "Component Test Skipped"
 }

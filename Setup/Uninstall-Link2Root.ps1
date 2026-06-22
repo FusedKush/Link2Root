@@ -34,35 +34,24 @@
 [CmdletBinding(DefaultParameterSetName = "WithOutput", SupportsShouldProcess)]
 param(
     <#
-        Keep the installation of Link2Root in the
-        current user's `AppData/Local` folder.
+        The individual components of Link2Root to be uninstalled.
 
-        Using this option will allow you to continue using Link2Root
-        without having to move or navigate to the downloaded `Link2Root/` folder.
+        If no components are specified, all of the
+        Available Setup Components will be uninstalled.
     #>
-    [switch]$KeepInstall,
-
-    <#
-        Keep the installation of the Link2Root PowerShell Module
-        in the current user's PowerShell Modules.
-
-        Using this option will allow you to continue using `Link2Root`
-        and `LinkThis2Root` without having to import them into
-        the PowerShell session or script.
-    #>
-    [switch]$KeepModule,
-
-    <#
-        Keep the Link2Root Installation Directory within
-        the current user's `PATH`.
-        
-        Using this option will allow you to continue using
-        the `Link2Root` command without having to move or navigate
-        to the downloaded `Link2Root/` folder.
-
-        This switch can only be used if `-KeepInstall` is used as well.
-    #>
-    [switch]$KeepPATH,
+    [ArgumentCompleter({
+        Import-Module "$PSScriptRoot\Utils.psm1" -Function Get-SetupComponentArgumentCompletions
+        Get-SetupComponentArgumentCompletions @args
+    })]
+    [Parameter(Position = 0)]
+    [ValidateScript({
+        Import-Module "$PSScriptRoot\Utils.psm1" -Function Test-SetupComponentParameter
+        $_ | Test-SetupComponentParameter
+    })]
+    [string[]]$Components = (& {
+        Import-Module "$PSScriptRoot\Utils.psm1" -Function Get-SetupComponents
+        Get-SetupComponents
+    }),
 
     <#
         Skip all confirmation prompts and immediately
@@ -231,7 +220,9 @@ try {
         Write-Verbose "$(_gis ($Indentation + 1))[>] Removing Installation Files..."
         _upb -Status "Remove Install Files" -CurrentOperation "Check Uninstall Status" -PercentageChange 0
         
-        if (-not $KeepInstall) {
+        if ($Components -icontains "LocalInstall") {
+            Write-Verbose "$(_gis ($Indentation + 2))[+] 'LocalInstall' Component Included in Uninstall"
+
             if (Test-Path $installLocation) {
                 Write-Verbose "$(_gis ($Indentation + 2))[>] Requesting User Confirmation to Proceed with Uninstallation of Install Files..."
 
@@ -320,7 +311,7 @@ try {
             }
         }
         else {
-            Write-Verbose "$(_gis ($Indentation + 2))[-] -KeepInstall Flag Passed to Uninstallation Script"
+            Write-Verbose "$(_gis ($Indentation + 2))[-] 'LocalInstall' Component Excluded from Uninstall"
             Write-Verbose "$(_gis ($Indentation + 1))[-] Installation Files were NOT Modified"
             _upb -Status "Remove Install Files" -CurrentOperation "Action Skipped"
 
@@ -339,7 +330,9 @@ try {
         Write-Verbose "$(_gis ($Indentation + 1))[>] Removing PowerShell Module..."
         _upb -Status "Remove PowerShell Module" -CurrentOperation "Check Uninstall Status" -PercentageChange 0
         
-        if (-not $KeepModule) {
+        if ($Components -icontains "PowerShellModule") {
+            Write-Verbose "$(_gis ($Indentation + 2))[+] 'PowerShellModule' Component Included in Uninstall"
+
             [string]$modulePath = & "$PSScriptRoot\Get-Link2RootInstall.ps1" `
                 -GetModulePath `
                 -Internal:$Internal `
@@ -455,7 +448,7 @@ try {
             }
         }
         else {
-            Write-Verbose "$(_gis ($Indentation + 2))[-] -KeepModule Flag Passed to Uninstallation Script"
+            Write-Verbose "$(_gis ($Indentation + 2))[-] 'PowerShellModule' Component Excluded from Uninstall"
             Write-Verbose "$(_gis ($Indentation + 1))[-] PowerShell Module was NOT Modified"
             _upb -Status "Remove PowerShell Module" -CurrentOperation "Action Skipped"
 
@@ -474,7 +467,9 @@ try {
         Write-Verbose "$(_gis ($Indentation + 1))[>] Updating User PATH..."
         _upb -Status "Update User PATH" -CurrentOperation "Check Uninstall Status" -PercentageChange 0
         
-        if (-not $KeepPATH) {
+        if ($Components -icontains "PATHUpdate") {
+            Write-Verbose "$(_gis ($Indentation + 2))[+] 'PATHUpdate' Component Included in Uninstall"
+
             [string[]]$userPATH = Get-UserPATH
             [string]$username = Get-FullyQualifiedUsername
     
@@ -575,7 +570,7 @@ try {
             }
         }
         else {
-            Write-Verbose "$(_gis ($Indentation + 2))[-] -KeepPATH Flag Passed to Uninstallation Script"
+            Write-Verbose "$(_gis ($Indentation + 2))[-] 'PATHUpdate' Component Excluded from Uninstall"
             Write-Verbose "$(_gis ($Indentation + 1))[-] User PATH was NOT Modified"
             _upb -Status "Update User PATH" -CurrentOperation "Action Skipped"
 
