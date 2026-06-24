@@ -193,6 +193,10 @@ param(
     [Parameter(ParameterSetName = "WithReturnValue", Mandatory)]
     [switch]$PassThru,
 
+    [Parameter(ParameterSetName = "WithReturnValue")]
+    [ValidateSet("Result", "Installed", "NotInstalled")]
+    [string]$PassThruType = "Result",
+
     <#
         An internal parameter used to flag that the script is being
         invoked internally, which is used to optimize the behavior
@@ -227,6 +231,12 @@ Import-Module "$PSScriptRoot\Utils.psm1" -Verbose:$false
 function Update-TestResult {
     param(
         <#
+            The Setup Parameter whose result is being recorded.
+        #>
+        [Parameter(Mandatory, Position = 0)]
+        [link2rootSetupComponent]$Component,
+
+        <#
             Indicates that the component test passed.
         #>
         [Parameter(ParameterSetName = "SuccessfulResult")]
@@ -241,6 +251,14 @@ function Update-TestResult {
 
     if ($Failure -and -not $Any) { $script:result = $false }
     elseif ($Success -and $Any)  { $script:result = $true }
+
+    if ($PassThru -and $PassThruType -ine "Result") {
+        if (($Success -and $PassThruType -ieq "Installed") -or
+            ($Failure -and $PassThruType -ieq "NotInstalled"))
+        {
+            Write-Output $Component
+        }
+    }
 }
 
 
@@ -288,7 +306,7 @@ if ($Components -icontains "LocalInstall") {
         if ($SkipInstallIntegrityCheck -or ((Test-InstallIntegrity @mainCheckArgs) -and (Test-InstallIntegrity @setupCheckArgs))) {
             Write-Verbose "$(_gis ($Indentation + 1))[+] Current Install Status: INSTALLED"
             _upb -Status "Check Install Status" -CurrentOperation "Component Installed!"
-            Update-TestResult -Success
+            Update-TestResult LocalInstall -Success
             
             if (-not $NoOutput) {
                 _wcp -Success
@@ -302,7 +320,7 @@ if ($Components -icontains "LocalInstall") {
             Write-Verbose "$(_gis ($Indentation + 2))[-] Integrity Check Failed for $installLocation"
             Write-Verbose "$(_gis ($Indentation + 1))[-] Current Install Status: NOT INSTALLED"
             _upb -Status "Check Install Status" -CurrentOperation "Component Damaged!"
-            Update-TestResult -Failure
+            Update-TestResult LocalInstall -Failure
 
             if (-not $NoOutput) {
                 _wcp -Failed
@@ -318,7 +336,7 @@ if ($Components -icontains "LocalInstall") {
         Write-Verbose "$(_gis ($Indentation + 2))[-] Link2Root is NOT installed in $installLocation"
         Write-Verbose "$(_gis ($Indentation + 1))[-] Current Install Status: NOT INSTALLED"
         _upb -Status "Check Install Status" -CurrentOperation "Component Missing!"
-        Update-TestResult -Failure
+        Update-TestResult LocalInstall -Failure
         
         if (-not $NoOutput) {
             _wcp -Failed
@@ -369,7 +387,7 @@ if ($Components -icontains "PowerShellModule") {
         if ($SkipModuleIntegrityCheck -or (Test-InstallIntegrity @integrityCheckArgs)) {
             Write-Verbose "$(_gis ($Indentation + 1))[+] Current PowerShell Module Status: INSTALLED"
             _upb -Status "Check PowerShell Module Status" -CurrentOperation "Component Installed!" -PercentageChange 20
-            Update-TestResult -Success
+            Update-TestResult PowerShellModule -Success
             
             if (-not $NoOutput) {
                 _wcp -Success
@@ -382,7 +400,7 @@ if ($Components -icontains "PowerShellModule") {
         else {
             Write-Verbose "$(_gis ($Indentation + 1))[-] Current PowerShell Module Status: NOT INSTALLED"
             _upb -Status "Check PowerShell Module Status" -CurrentOperation "Component Damaged!" -PercentageChange 20
-            Update-TestResult -Failure
+            Update-TestResult PowerShellModule -Failure
             
             if (-not $NoOutput) {
                 _wcp -Failed
@@ -398,7 +416,7 @@ if ($Components -icontains "PowerShellModule") {
         Write-Verbose "$(_gis ($Indentation + 2))[-] The Link2Root PowerShell Module is NOT installed in $modulePath"
         Write-Verbose "$(_gis ($Indentation + 1))[-] Current PowerShell Module Status: NOT INSTALLED"
         _upb -Status "Check PowerShell Module Status" -CurrentOperation "Component Missing!" -PercentageChange 20
-        Update-TestResult -Failure
+        Update-TestResult PowerShellModule -Failure
 
         if (-not $NoOutput) {
             _wcp -Failed
@@ -428,7 +446,7 @@ if ($Components -icontains "PATHUpdate") {
     if (Test-UserPATH $installLocation -Indentation ($Indentation + 2) -Verbose:$VerbosePreference) {
         Write-Verbose "$(_gis ($Indentation + 1))[+] Current PATH Status: FOUND"
         _upb -Status "Check PATH Status" -CurrentOperation "Component Installed!"
-        Update-TestResult -Success
+        Update-TestResult PATHUpdate -Success
         
         if (-not $NoOutput) {
             _wcp -Success
@@ -442,7 +460,7 @@ if ($Components -icontains "PATHUpdate") {
         Write-Verbose "$(_gis ($Indentation + 2))[-] Entry $installLocation NOT found in $username's PATH"
         Write-Verbose "$(_gis ($Indentation + 1))[-] Current PATH Status: NOT FOUND"
         _upb -Status "Check Install Status" -CurrentOperation "Component Missing!"
-        Update-TestResult -Failure
+        Update-TestResult PATHUpdate -Failure
         
         if (-not $NoOutput) {
             _wcp -Failed
@@ -474,6 +492,6 @@ if (-not $NoOutput) {
     else         { Write-Host "NOT Currently Installed!" -ForegroundColor Red }
 }
 
-if ($PassThru) {
+if ($PassThru -and $PassThruType -ieq "Result") {
     return $result
 }
