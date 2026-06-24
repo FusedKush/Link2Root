@@ -31,7 +31,7 @@
     When the `-PassThru` switch is used, `Uninstall-Link2Root.ps1` returns
     `$true` if the uninstallation was successful or `$false` if it was not.
 #>
-[CmdletBinding(DefaultParameterSetName = "WithOutput", SupportsShouldProcess)]
+[CmdletBinding(SupportsShouldProcess)]
 param(
     <#
         The individual components of Link2Root to be uninstalled.
@@ -74,7 +74,6 @@ param(
         Has no effect on progress bars or verbose output. To control the behavior
         of Progress Bars, use the `-NoProgress` or `-Silent` switch.
     #>
-    [Parameter(ParameterSetName = "WithoutOutput", Mandatory)]
     [switch]$NoOutput,
 
     <#
@@ -90,8 +89,6 @@ param(
         `$ProgressPreference` automatic variable.
     #>
     [Alias("HideProgress")]
-    [Parameter(ParameterSetName = "WithOutput")]
-    [Parameter(ParameterSetName = "WithoutOutput")]
     [switch]$NoProgress,
 
     <#
@@ -108,7 +105,6 @@ param(
         functions and cmdlets. To control the behavior of all PowerShell progress bars,
         use the `$ProgressPreference` automatic variable.
     #>
-    [Parameter(ParameterSetName = "WithoutOutputOrProgress", Mandatory)]
     [switch]$Silent,
 
     <#

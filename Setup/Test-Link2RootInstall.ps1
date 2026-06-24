@@ -71,7 +71,7 @@
     and Link2Root in the User's PATH and only returns the result of the test
     without printing anything to the console.
 #>
-[CmdletBinding(DefaultParameterSetName = "WithOutput", PositionalBinding = $false)]
+[CmdletBinding(DefaultParameterSetName = "WithoutReturnValue", PositionalBinding = $false)]
 param(
     <#
         The individual components of the Link2Root Installation to be tested.
@@ -142,7 +142,7 @@ param(
         Has no effect on progress bars or verbose output. To control the behavior
         of Progress Bars, use the `-NoProgress` or `-Silent` switch.
     #>
-    [Parameter(ParameterSetName = "WithoutOutput", Mandatory)]
+    [Parameter(ParameterSetName = "WithReturnValue")]
     [switch]$NoOutput,
 
     <#
@@ -158,8 +158,6 @@ param(
         `$ProgressPreference` automatic variable.
     #>
     [Alias("HideProgress")]
-    [Parameter(ParameterSetName = "WithOutput")]
-    [Parameter(ParameterSetName = "WithoutOutput")]
     [switch]$NoProgress,
 
     <#
@@ -179,7 +177,7 @@ param(
         functions and cmdlets. To control the behavior of all PowerShell progress bars,
         use the `$ProgressPreference` automatic variable.
     #>
-    [Parameter(ParameterSetName = "WithoutOutputOrProgress", Mandatory)]
+    [Parameter(ParameterSetName = "WithReturnValue")]
     [switch]$Silent,
 
     <#
@@ -192,9 +190,7 @@ param(
         If the `-NoOutput` or `-Silent` switches are used, this switch
         MUST be used in order to obtain any results from the script.
     #>
-    [Parameter(ParameterSetName = "WithOutput")]
-    [Parameter(ParameterSetName = "WithoutOutput", Mandatory)]
-    [Parameter(ParameterSetName = "WithoutOutputOrProgress", Mandatory)]
+    [Parameter(ParameterSetName = "WithReturnValue", Mandatory)]
     [switch]$PassThru,
 
     <#
