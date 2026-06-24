@@ -164,59 +164,7 @@ enum InstallVerb {
     Link2Root Component being installed.
 #>
 [InstallVerb]$installVerb = "Install"
-
-<#
-    Create a new directory during the Link2Root Installation.
-#>
-function New-InstallDirectory {
-
-    [CmdletBinding()]
-    [OutputType([string])]
-    param(
-        <#
-            The path to the location where the
-            new directory is to be created.
-        #>
-        [Parameter(Mandatory, Position = 1, ValueFromPipeline)]
-        [string]$Path,
-
-        <#
-            The name of the new directory being created.
-        #>
-        [Parameter(Mandatory, Position = 2)]
-        [string]$Name,
-
-        <#
-            Indicates that this function should return the concatenated path
-            to the newly-created directory on success.
-
-            By default and when this switch is omitted, this function
-            does not generate any output.
-        #>
-        [switch]$PassThru,
-
-        <#
-            The inner indentation level to use for output logging.
-
-            Applied on top of the script `-Indentation` level.
-        #>
-        [int]$InnerIndentation = 0
-    )
-
-    New-Item -ItemType Directory -Path $Path -Name $Name @NO_RISK_PARAMS | Out-Null
-    
-    if (Test-Path "$Path\$Name") {
-        Write-Verbose "$(_gis ($Indentation + $InnerIndentation + 3))[+] New Directory: $(Join-Path $Path $Name)"
-    }
-    else {
-        throw "Failed to Create Directory '$Name' in $(Resolve-Path $Path)"
-    }
-
-    if ($PassThru) {
-        return (Resolve-Path "$Path\$Name")
-    }
-
-}
+[string]$uninstallRollbackHash = $null
 
 <#
     Create a new temporary directory to use
@@ -228,9 +176,9 @@ function New-TemporaryFolder {
     [OutputType([string])]
     param()
 
-    $name = (New-Guid).ToString()
-    $tempPath = ([System.IO.Path]::GetTempPath())
-    $tempFolder = Join-Path $tempPath $name
+    [string]$name = (New-Guid).ToString()
+    [string]$tempPath = "$(Get-TemporaryFileLocation)\Install"
+    [string]$tempFolder = Join-Path $tempPath $name
 
     New-Item -Path $tempFolder -ItemType Directory @NO_RISK_PARAMS | Out-Null
     Write-Verbose "$(_gis ($Indentation + 2))[+] Created Temporary Directory: $name"
@@ -313,12 +261,12 @@ function Copy-ToTemporaryFolder {
     )
 
     begin {
-        [string[]]$allPatterns = $Patterns
+        [string[]]$allPatterns = @()
     }
 
     process {
-        if ($null -ne $_) {
-            $allPatterns += @($_)
+        if ($null -ne $Patterns) {
+            $allPatterns += $Patterns
         }
     }
 
@@ -327,7 +275,7 @@ function Copy-ToTemporaryFolder {
         Write-Verbose "$(_gis ($Indentation + $InnerIndentation + 4))[>] File Patterns:"
 
         foreach ($currentPattern in $allPatterns) {
-            Write-Verbose "$(_gis ($Indentation + $InnerIndentation + 5))[#] $currentPath"
+            Write-Verbose "$(_gis ($Indentation + $InnerIndentation + 5))[#] $currentPattern"
         }
 
         [string[]]$resolvedPaths = Get-Item $allPatterns -Filter $Filter
@@ -351,16 +299,7 @@ function Copy-ToTemporaryFolder {
                     if ($Name.Trim() -ne "") { $newDestination += "\$Name" }
                     else                     { $newDestination += "\$(Split-Path $resolvedPath -Leaf)" }
     
-                    if (-not (Test-Path $newDestination)) {
-                        $newDestination = (
-                            New-InstallDirectory `
-                                -Path (Split-Path $newDestination -Parent) `
-                                -Name (Split-Path $newDestination -Leaf) `
-                                -PassThru `
-                                -InnerIndentation $InnerIndentation
-                        )
-                    }
-                    
+                    Confirm-DirectoryExists -Path $newDestination -Indentation ($Indentation + $InnerIndentation + 5)                    
                     Write-Verbose "$(_gis ($Indentation + $InnerIndentation + 5))[>] Copying Directory: $resolvedPath"
                     Copy-ToTemporaryFolder `
                         -Patterns (Get-ChildItem $resolvedPath -Filter $Filter).FullName `
@@ -417,7 +356,6 @@ function Copy-ToTemporaryFolder {
             Remove-ProgressBar
         }
     }
-
 
 }
 
@@ -954,11 +892,7 @@ try {
                                     Write-Verbose "$(_gis ($Indentation + 3))[-] Existing PowerShell Modules Directory NOT Found"
                                     _upb -Status "Install PowerShell Module" -CurrentOperation "Create PowerShell Folders" -PercentageChange 0
             
-                                    if (-not (Test-Path $psFolder)) {
-                                        New-InstallDirectory -Path (Split-Path $psFolder -Parent) -Name (Split-Path $psFolder -Leaf)
-                                    }
-                                    
-                                    New-InstallDirectory -Path $psFolder -Name (Split-Path $modulesLocation -Leaf)
+                                    Confirm-DirectoryExists $psFolder -MaxDepth 2 -Indentation ($Indentation + 3)
                                 }
                                 else {
                                     Write-Verbose "$(_gis ($Indentation + 3))[+] Existing PowerShell Modules Directory FOUND"
@@ -1003,24 +937,30 @@ try {
                             }
                             else {
                                 [string]$desktop = ([System.Environment]::GetFolderPath("Desktop"))
+                                [string]$desktopCopyPath = "$desktop\$psFolderName"
     
                                 if (-not $NoOutput) {
                                     Write-Warning "PowerShell does not have permission to modify $psFolder. This often caused by Anti-Virus Software or Windows Security's `"Controlled Folder Access`" option."
                                 }
                             
-                                if (-not (Test-Path "$desktop\$psFolderName")) {
+                                if (-not (Test-Path $desktopCopyPath)) {
                                     if ($Force -or $yesToAll -or $PSCmdlet.ShouldContinue(
                                         "You will have to manually move the directory into your /Documents folder to $(Get-InstallVerb -lc) the PowerShell Module.",
                                         "Do you want to create the PowerShell Module Folder on the Desktop?",
                                         [ref]$yesToAll,
                                         [ref]$noToAll
                                     )) {
-                                        [string]$modulesFolderName = (Split-Path $modulesLocation -Leaf)
+                                        Confirm-DirectoryExists -Path $desktopCopyPath -MaxDepth 2 -Indentation ($Indentation + 3)
         
-                                        New-InstallDirectory -Path $desktop -Name $psFolderName -PassThru |
-                                            New-InstallDirectory -Name $modulesFolderName -PassThru |
-                                                Move-TemporaryFolder -TempFolder $tempFolder -Name "Link2Root" -PassThru |
-                                                    Assert-InstallIntegrity -Source "$PSScriptRoot/../" -Filter "Link2Root.ps?1" -Verbose:$VerbosePreference
+                                        Move-TemporaryFolder `
+                                            -TempFolder $tempFolder `
+                                            -Destination $desktopCopyPath `
+                                            -Name "Link2Root" `
+                                            -PassThru |
+                                            Assert-InstallIntegrity `
+                                                -Source "$PSScriptRoot/../" `
+                                                -Filter "Link2Root.ps?1" `
+                                                -Verbose:$VerbosePreference
                                     }
                                 }
                                 else {

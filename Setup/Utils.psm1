@@ -20,6 +20,206 @@
 [string[]]$SETUP_FOLDER_IGNORED_FILES = @("*[/\]Install-Link2Root.ps1")
 
 
+# Files & Paths #
+
+<#
+    .SYNOPSIS
+    Ensure that the designated directory exists, creating it if necessary.
+
+    .DESCRIPTION
+    Check if the specified directory exists and, if it does not,
+    creates all of the missing directories.
+
+    If the designated directory already exists, this function simply returns.
+
+    .INPUTS
+    String.
+    You can pipe the path to the directory to search for to `Confirm-DirectoryExists`.
+
+    .OUTPUTS
+    None.
+    `Confirm-DirectoryExists` does not generate any output.
+#>
+function Confirm-DirectoryExists {
+
+    [CmdletBinding()]
+    param(
+        <#
+            The path to the directory to search for.
+        #>
+        [Parameter(Mandatory, Position = 1, ValueFromPipeline)]
+        [string]$Path,
+
+        <#
+            The maximum number of directories, including the
+            intended one, that can be created by this function.
+
+            If a negative value is specified, the function will create
+            as many directories as required for the designated directory.
+            This is the default behavior.
+
+            If a value of zero is specified, no directories will be created
+            at all, including the intended one.
+        #>
+        [int]$MaxDepth = -1,
+
+        <#
+            An internal parameter used to specify the indentation
+            level to use for output logging.
+        #>
+        [Parameter(DontShow)]
+        [int]$Indentation = 0
+    )
+
+    if (-not (Test-Path $Path)) {
+        if ($MaxDepth -ne 0) {
+            [string]$parentPath = Split-Path $Path -Parent
+    
+            if (-not (Test-Path $parentPath)) {
+                Confirm-DirectoryExists `
+                    -Path $parentPath `
+                    -Indentation ($Indentation + 1) `
+                    -MaxDepth ($MaxDepth - 1)
+            }
+    
+            New-Item -ItemType Directory -Path $Path -Name $Name @NO_RISK_PARAMS | Out-Null
+            Write-Verbose "$(_gis $Indentation)[+] New Directory: $(Join-Path $Path $Name)"
+        }
+        else {
+            Write-Verbose "$(_gis $Indentation)[-] New Directory: $(Join-Path $Path $Name)"
+        }
+    }
+
+}
+
+<#
+    .SYNOPSIS
+    Get the location where temporary files are saved.
+
+    .DESCRIPTION
+    Get the full path to the location where temporary files for
+    the Link2Root Setup are saved.
+
+    .INPUTS
+    None.
+    You cannot pipe any objects to `Get-TemporaryFileLocation`.
+
+    .OUTPUTS
+    String.
+    `Get-TemporaryFileLocation` returns a string containing
+    the full path to the location where temporary setup files are stored.
+#>
+function Get-TemporaryFileLocation {
+
+    [OutputType([string])]
+    param()
+
+    return Join-Path ([System.IO.Path]::GetTempPath()) "Link2Root"
+
+}
+
+<#
+    .SYNOPSIS
+    Test if a file matches the specified pattern.
+
+    .DESCRIPTION
+    Test if a file path matches the specified `-Filter`,
+    `-Include`, and `-Exclude` patterns.
+
+    .INPUTS
+    string.
+    You can pipe a string containing the path to be tested to `Test-FilePattern`.
+
+    .OUTPUTS
+    bool.
+    `Test-FilePattern` returns boolean `$true` if the specified file path matches
+    the designated pattern or `$false` if it does not.
+#>
+function Test-FilePattern {
+
+    [CmdletBinding(PositionalBinding = $false)]
+    param(
+        <#
+            The path to be tested.
+        #>
+        [Parameter(Mandatory, Position = 0, ValueFromPipeline)]
+        [string]$Path,
+
+        <#
+            Specifies a filter to qualify the `Path` parameter.
+            
+            Filters are more efficient than other parameters. The provider applies the filter when the cmdlet
+            gets the objects rather than having PowerShell filter the objects after they're retrieved.
+            
+            The filter string is passed to the .NET API to enumerate files.
+            The API only supports * and ? wildcards.
+        #>
+        [SupportsWildcards()]
+        [string]$Filter,
+
+        <#
+            Specifies, as a string array, an item or items that this cmdlet includes in the operation.
+            
+            The value of this parameter qualifies the `Path` parameter.
+            
+            Enter a path element or pattern, such as *.txt. Wildcard characters are permitted.
+        #>
+        [SupportsWildcards()]
+        [string[]]$Include,
+
+        <#
+            Specifies, as a string array, an item or items that this cmdlet excludes in the operation.
+            
+            The value of this parameter qualifies the `Path` parameter.
+            
+            Enter a path element or pattern, such as *.txt. Wildcard characters are permitted.
+        #>
+        [SupportsWildcards()]
+        [string[]]$Exclude,
+
+        <#
+            An internal parameter used to specify the indentation
+            level to use for output logging.
+        #>
+        [Parameter(DontShow)]
+        [int]$Indentation = 0
+    )
+
+    [string]$fileType = & {
+        if ((Test-Path $Path -PathType Container)) { return "Directory" }
+        else                                       { return "File" }
+    }
+    [string]$fileName = Split-Path $Path -Leaf
+
+    foreach ($Pattern in $Exclude) {
+        if ($Path -ilike $Pattern -or $fileName -ilike $Pattern) {
+            Write-Verbose "$(_gis $Indentation)[/] Skipped ${fileType}: $Path"
+            Write-Verbose "$(_gis ($Indentation + 1))[#] Matched Exclusion Pattern: $Pattern"
+            return $false
+        }
+    }
+
+    if ($Include.Count -gt 0) {
+        foreach ($pattern in $Include) {
+            if ($Path -ilike $pattern -or $fileName -ilike $pattern) {
+                return $true
+            }
+        }
+        
+        Write-Verbose "$(_gis ($Indentation + 1))[>] No Match for Inclusion Patterns:"
+
+        foreach ($pattern in $Include) {
+            Write-Verbose "$(_gis ($Indentation + 2))[#] $pattern"
+        }
+
+        return $false
+    }
+
+    return $true
+
+}
+
+
 # User PATH Management #
 
 <#
@@ -1986,107 +2186,6 @@ function Get-FullyQualifiedUsername {
     param()
 
     return "${env:USERDOMAIN}\${env:USERNAME}"
-
-}
-
-<#
-    .SYNOPSIS
-    Test if a file matches the specified pattern.
-
-    .DESCRIPTION
-    Test if a file path matches the specified `-Filter`,
-    `-Include`, and `-Exclude` patterns.
-
-    .INPUTS
-    string.
-    You can pipe a string containing the path to be tested to `Test-FilePattern`.
-
-    .OUTPUTS
-    bool.
-    `Test-FilePattern` returns boolean `$true` if the specified file path matches
-    the designated pattern or `$false` if it does not.
-#>
-function Test-FilePattern {
-
-    [CmdletBinding(PositionalBinding = $false)]
-    param(
-        <#
-            The path to be tested.
-        #>
-        [Parameter(Mandatory, Position = 0, ValueFromPipeline)]
-        [string]$Path,
-
-        <#
-            Specifies a filter to qualify the `Path` parameter.
-            
-            Filters are more efficient than other parameters. The provider applies the filter when the cmdlet
-            gets the objects rather than having PowerShell filter the objects after they're retrieved.
-            
-            The filter string is passed to the .NET API to enumerate files.
-            The API only supports * and ? wildcards.
-        #>
-        [SupportsWildcards()]
-        [string]$Filter,
-
-        <#
-            Specifies, as a string array, an item or items that this cmdlet includes in the operation.
-            
-            The value of this parameter qualifies the `Path` parameter.
-            
-            Enter a path element or pattern, such as *.txt. Wildcard characters are permitted.
-        #>
-        [SupportsWildcards()]
-        [string[]]$Include,
-
-        <#
-            Specifies, as a string array, an item or items that this cmdlet excludes in the operation.
-            
-            The value of this parameter qualifies the `Path` parameter.
-            
-            Enter a path element or pattern, such as *.txt. Wildcard characters are permitted.
-        #>
-        [SupportsWildcards()]
-        [string[]]$Exclude,
-
-        <#
-            An internal parameter used to specify the indentation
-            level to use for output logging.
-        #>
-        [Parameter(DontShow)]
-        [int]$Indentation = 0
-    )
-
-    [string]$fileType = & {
-        if ((Test-Path $Path -PathType Container)) { return "Directory" }
-        else                                       { return "File" }
-    }
-    [string]$fileName = Split-Path $Path -Leaf
-
-    foreach ($Pattern in $Exclude) {
-        if ($Path -ilike $Pattern -or $fileName -ilike $Pattern) {
-            Write-Verbose "$(_gis $Indentation)[/] Skipped ${fileType}: $Path"
-            Write-Verbose "$(_gis ($Indentation + 1))[#] Matched Exclusion Pattern: $Pattern"
-            return $false
-        }
-    }
-
-    if ($Include.Count -gt 0) {
-        foreach ($pattern in $Include) {
-            if ($Path -ilike $pattern -or $fileName -ilike $pattern) {
-                return $true
-            }
-        }
-        
-        Write-Verbose "$(_gis ($Indentation + 1))[>] No Match for Inclusion Patterns:"
-
-        foreach ($pattern in $Include) {
-            Write-Verbose "$(_gis ($Indentation + 2))[#] $pattern"
-        }
-
-        return $false
-    }
-
-    return $true
 
 }
 
