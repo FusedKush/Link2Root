@@ -80,16 +80,16 @@ param(
         Default Setup Components will be tested.
     #>
     [ArgumentCompleter({
-        Import-Module "$PSScriptRoot\Utils.psm1" -Function Get-SetupComponentArgumentCompletions
+        Import-Module "$PSScriptRoot\Utils.psm1" -Function Get-SetupComponentArgumentCompletions -Verbose:$false
         Get-SetupComponentArgumentCompletions @args
     })]
     [Parameter(Position = 0)]
     [ValidateScript({
-        Import-Module "$PSScriptRoot\Utils.psm1" -Function Test-SetupComponentParameter
+        Import-Module "$PSScriptRoot\Utils.psm1" -Function Test-SetupComponentParameter -Verbose:$false
         $_ | Test-SetupComponentParameter
     })]
     [string[]]$Components = (& {
-        Import-Module "$PSScriptRoot\Utils.psm1" -Function Get-SetupComponents
+        Import-Module "$PSScriptRoot\Utils.psm1" -Function Get-SetupComponents -Verbose:$false
         Get-SetupComponents -Filter Default
     }),
 
@@ -209,7 +209,7 @@ param(
     [int]$Indentation = 0
 )
 
-Import-Module "$PSScriptRoot\Utils.psm1" -Verbose:($VerbosePreference -and -not $Internal)
+Import-Module "$PSScriptRoot\Utils.psm1" -Verbose:$false
 
 
 # Variables and Helper Functions #
