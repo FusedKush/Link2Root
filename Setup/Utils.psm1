@@ -505,14 +505,15 @@ function Assert-InstallIntegrity {
     standard `Get-FileHash` function.
 
     If a directory is specified, the file hash of
-    each file in the directory is computed, joined together, 
-    and then itself hashed to create a hash for the directory.
-    If the specified directory contains one or more sub-directories,
-    their hashes will be recursively computed using `Get-FileHashRecursive`.
+    each file in the directory is computed, concatenated together, 
+    and then itself hashed using the `Get-StringHash` function to
+    create a hash for the directory. If the specified directory
+    contains one or more sub-directories, their hashes will be
+    recursively computed using `Get-FileHashRecursive`.
 
     If multiple paths are specified, their individual hashes
-    will be computed, joined together, and then itself hashed
-    to create a hash for the combination of paths.
+    will be computed, concatenated together, and then itself hashed
+    using the `Get-StringHash` function to create a hash for the combination of paths.
     If any of the specified paths are directories that contain one or more sub-directories,
     their hashes will be recursively computed using `Get-FileHashRecursive`.
 
@@ -528,9 +529,6 @@ function Assert-InstallIntegrity {
     to create file and directory hashes that are used for verification, but can
     cause issues and must be kept in mind during active development
     if unexpected values are being generated.
-
-    To see which files are being included in the computed hash,
-    use the `-Verbose` switch.
 
     .INPUTS
     string.
@@ -548,10 +546,14 @@ function Assert-InstallIntegrity {
     `Get-FileHashRecursive` returns a string containing
     the computed hash for the specified file or directory.
 
-    If no valid files or directories were found to include in the hash,
-    or if the specified file or directory is empty, the hash value
-    `E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855`
-    will be returned.
+    .LINK
+    Get-StringHash
+
+    .LINK
+    Test-InstallValidity
+
+    .LINK
+    Assert-InstallValidity
 #>
 function Get-FileHashRecursive {
 
@@ -632,6 +634,8 @@ function Get-FileHashRecursive {
         # All of the specified paths, joined together from the path parameter
         # and individual pipeline contents.
         [string[]]$allPaths = $Path
+        [System.IO.FileSystemInfo[]]$resolvedPaths = @()
+        [System.Collections.Generic.SortedSet[string]]$childHashes = [System.Collections.Generic.SortedSet[string]]::new()
     }
 
     process {
@@ -641,11 +645,6 @@ function Get-FileHashRecursive {
     }
 
     end {
-        [System.IO.FileSystemInfo[]]$resolvedPaths = @()
-        [System.Collections.Generic.SortedSet[string]]$childHashes = [System.Collections.Generic.SortedSet[string]]::new()
-        [System.IO.MemoryStream]$joinedHashes = [System.IO.MemoryStream]::new()
-        [System.IO.StreamWriter]$joinedHashesWriter = [System.IO.StreamWriter]::new($joinedHashes)
-
         foreach ($currentPath in $allPaths) {
             try {
                 $resolvedPaths += Get-Item -Path $currentPath -Filter $Filter -ErrorAction Stop
@@ -712,16 +711,79 @@ function Get-FileHashRecursive {
             return $childHashes[0]
         }
         else {
-            foreach ($hash in $childHashes) {
-                $joinedHashesWriter.Write($hash)
-            }
-    
-            $joinedHashesWriter.Flush()
-            $joinedHashes.Position = 0
-    
-            return (Get-FileHash -InputStream $joinedHashes -Algorithm $Algorithm).Hash
+            return ($childHashes | Get-StringHash)
         }
-        
+    }
+
+}
+
+<#
+    .SYNOPSIS
+    Compute the hash value of one or more strings.
+
+    .DESCRIPTION
+    Compute the hash value of one or more strings
+    using the designated hashing algorithm.
+
+    .INPUTS
+    string.
+    You can pipe one or more strings to be hashed to `Get-StringHash`.
+
+    If multiple strings are piped to the function, they will
+    be hashed as though they were all concatenated together
+    and then hashed as a single string. This means that
+    `@("foo", "bar", "baz") | Get-StringHash` will return
+    the same hash value as `Get-StringHash "foobarbaz"`
+
+    .OUTPUTS
+    string.
+    `Get-StringHash` returns a string containing
+    the computed hash for the specified string(s).
+
+    .lINK
+    Get-FileHashRecursive
+#>
+function Get-StringHash {
+
+    param(
+        <#
+            The string being hashed.
+        #>
+        [Alias("String")]
+        [Parameter(Mandatory, Position = 0, ValueFromPipeline)]
+        [string]$InputObject,
+
+        <#
+            Specifies the cryptographic hash function to use for computing the hash value of the string.
+            
+            The acceptable values for this parameter are:
+                - SHA1
+                - SHA256
+                - SHA384
+                - SHA512
+                - MD5
+
+            For security reasons, MD5 and SHA1, which are no longer considered secure, should only be used for simple change validation,
+            and should not be used to generate hash values for values that require protection from attack or tampering.
+        #>
+        [ValidateSet("SHA1", "SHA256", "SHA384", "SHA512", "MD5")]
+        [string]$Algorithm = "SHA256"
+    )
+
+    begin {
+        [System.IO.MemoryStream]$joinedHashes = [System.IO.MemoryStream]::new()
+        [System.IO.StreamWriter]$joinedHashesWriter = [System.IO.StreamWriter]::new($joinedHashes)
+    }
+
+    process {
+        $joinedHashesWriter.Write($InputObject)
+    }
+
+    end {
+        $joinedHashesWriter.Flush()
+        $joinedHashes.Position = 0
+    
+        return (Get-FileHash -InputStream $joinedHashes -Algorithm $Algorithm).Hash
     }
 
 }
