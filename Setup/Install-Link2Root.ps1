@@ -63,6 +63,27 @@ param(
     #>
     [Alias("Repair")]
     [switch]$Reinstall,
+
+    <#
+        Indicates that when updating the User's PATH,
+        the PATH Entries for Link2Root should be prepended
+        to the current PATH, making them a higher priority
+        than all of the existing PATH Entries.
+
+        By default and when this switch is omitted, the
+        PATH Entries for Link2Root are appended to the
+        current PATH, making them a lower priority than
+        all of the existing PATH Entries. 
+    #>
+    [switch]$PrependPATH,
+
+    <#
+        Don't roll back the changes made by this script if an error occurs.
+
+        By default and when this switch is omitted, any changes made by the
+        script will be automatically rolled back if an error occurs during installation.
+    #>
+    [switch]$NoRollBack,
     
     <#
         Skip all confirmation prompts and immediately
@@ -125,15 +146,7 @@ param(
         By default and when this switch is omitted, this function
         does not generate any output.
     #>
-    [switch]$PassThru,
-
-    <#
-        Don't roll back the changes made by this script if an error occurs.
-
-        By default and when this switch is omitted, any changes made by the
-        script will be automatically rolled back if an error occurs during installation.
-    #>
-    [switch]$NoRollBack
+    [switch]$PassThru
 )
 
 Import-Module "$PSScriptRoot\Utils.psm1" -Verbose:$false
@@ -1076,11 +1089,15 @@ try {
         
                         # Update the user's PATH
                         _upb -Status "Update User PATH" -CurrentOperation "Add PATH Entry" -PercentageChange 10
+                        [string[]]$newPATH = & {
+                            if (-not $PrependPATH) { return ((Get-UserPATH) + @($installLocation)) }
+                            else                   { return (@($installLocation) + (Get-UserPATH)) }
+                        }
+                        
                         Set-UserPATH `
-                            -PATH ((Get-UserPATH) + @($installLocation)) `
+                            -PATH $newPATH `
                             -Verbose:$VerbosePreference `
                             -Indentation ($Indentation + 2)
-
                         Write-Verbose "$(_gis ($Indentation + 1))[+] User PATH Updated"
                         _upb -Status "Update User PATH" -CurrentOperation "Operation Completed Successfully" -PercentageChange 15
                         $success = $true
