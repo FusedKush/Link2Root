@@ -558,10 +558,20 @@ try {
         Internal = $true
         Indentation = ($Indentation + 2)
     }
+    [int]$defaultPercentageChange
+    [int]$initialSecondsRemaining = 5
+
+    if ($Reinstall) {
+        $defaultPercentageChange *= 0.75
+        $initialSecondsRemaining *= 2.5
+    }
 
     Write-Verbose "$(_gis $Indentation)[>] Running Link2Root Installer..."
     Hide-ProgressBars $NoProgress
-    Add-ProgressBar -Name "Installing Link2Root" -DefaultPercentageChange 25 -InitialSecondsRemaining 5
+    Add-ProgressBar `
+        -Name "Installing Link2Root" `
+        -DefaultPercentageChange $defaultPercentageChange `
+        -InitialSecondsRemaining $initialSecondsRemaining
     _upb -Status "Check Current Installation Status"
 
 
@@ -616,6 +626,23 @@ try {
             [bool]$scriptIsInstalled = Test-Path $installLocation
             [bool]$moduleIsInstalled = Test-Path $modulePath
             [bool]$isAddedToPATH = Test-UserPATH -Entry $installLocation -NoProgress
+
+
+            # Remove existing files if necessary
+            if ($scriptIsInstalled) {
+                Write-Verbose "$(_gis ($Indentation + 2))[>] Removing Existing Files for Reinstall..."
+                _upb -Status "Copy Link2Root Files" -CurrentOperation "Remove Existing Files" -PercentageChange 0
+                $uninstallRollbackHash = & "$PSScriptRoot\Uninstall-Link2Root.ps1" `
+                    -Components $Components `
+                    -EnableRollback:(-not $NoRollback) `
+                    -Force `
+                    -NoOutput `
+                    -NoProgress:$NoProgress `
+                    -Verbose:$VerbosePreference `
+                    -Internal `
+                    -Indentation ($Indentation + 3)
+                Write-Verbose "$(_gis ($Indentation + 2))[+] Removed Existing Files for Reinstall"
+            }
             
 
             # Install the script in the current user's local appdata folder
@@ -705,22 +732,6 @@ try {
                                 -Exclude $SETUP_FOLDER_IGNORED_FILES `
                                 -Verbose:$VerbosePreference `
                                 -Indentation ($Indentation + 2)
-                             
-                            
-                            # Remove existing install files if necessary
-                            if ($scriptIsInstalled) {
-                                Write-Verbose "$(_gis ($Indentation + 2))[>] Removing Existing Installation Files for Reinstall..."
-                                _upb -Status "Copy Link2Root Files" -CurrentOperation "Remove Existing Files" -PercentageChange 0
-                                & "$PSScriptRoot\Uninstall-Link2Root.ps1" `
-                                    -Reinstall `
-                                    -Force `
-                                    -Components LocalInstall `
-                                    -NoOutput `
-                                    -NoProgress:$NoProgress `
-                                    -Verbose:$VerbosePreference `
-                                    -Indentation ($Indentation + 3)
-                                Write-Verbose "$(_gis ($Indentation + 2))[+] Removed Existing Installation Files for Reinstall"
-                            }
 
 
                             # Move the temporary directory to the final install location
@@ -895,23 +906,6 @@ try {
                                 }
 
                                 Write-Verbose "$(_gis ($Indentation + 2))[+] PowerShell Modules Directory Located: $modulesLocation"
-                    
-
-                                # Remove the existing module files if needed
-                                if ($moduleIsInstalled) {
-                                    Write-Verbose "$(_gis ($Indentation + 2))[>] Removing Existing PowerShell Module Files for Reinstall..."
-                                    _upb -Status "Install PowerShell Module" -CurrentOperation "Remove Existing Files" -PercentageChange 0
-                                    & "$PSScriptRoot\Uninstall-Link2Root.ps1" `
-                                        -Reinstall `
-                                        -Components PowerShellModule `
-                                        -NoOutput `
-                                        -NoProgress:$NoProgress `
-                                        -Force `
-                                        -Verbose:$VerbosePreference `
-                                        -Indentation ($Indentation + 3)
-                                    Write-Verbose "$(_gis ($Indentation + 2))[+] Removed Existing PowerShell Module Files for Reinstall"
-                                }
-
 
                                 # Move the temporary folder to the final module location
                     
@@ -1079,21 +1073,6 @@ try {
                         else {
                             Write-Verbose "$(_gis ($Indentation + 2))[+] User Approved Confirmation."
                         }
-
-                        # Remove existing PATH Entries if any are present
-                        if ($isAddedToPATH) {
-                            Write-Verbose "$(_gis ($Indentation + 2))[>] Removing Link2Root from $username's PATH for Reinstall..."
-                            _upb -Status "Update User PATH" -CurrentOperation "Remove Existing PATH Entry" -PercentageChange 0
-                            & "$PSScriptRoot\Uninstall-Link2Root.ps1" `
-                                -Reinstall `
-                                -Force `
-                                -Components PATHUpdate `
-                                -NoOutput `
-                                -NoProgress:$NoProgress `
-                                -Verbose:$VerbosePreference `
-                                -Indentation ($Indentation + 3)
-                            Write-Verbose "$(_gis ($Indentation + 2))[+] Removed Link2Root from $username's PATH for Reinstall"
-                        }
         
                         # Update the user's PATH
                         _upb -Status "Update User PATH" -CurrentOperation "Add PATH Entry" -PercentageChange 10
@@ -1200,9 +1179,53 @@ try {
             Write-Host "!" -ForegroundColor Red
         }
     
-        if ($success -and -not $NoRollBack -and -not $Reinstall) {
-            Write-Host "Rolling back changes..." -ForegroundColor DarkYellow
-            & "$PSScriptRoot\Uninstall-Link2Root.ps1" -Rollback -Silent -Force -Verbose:$VerbosePreference
+        if ($success -and -not $NoRollBack) {
+            try {
+                _upb -Status "Roll Back Changes"
+                Write-Verbose "$(_gis $Indentation)[>] Performing Installation Rollback..."
+                
+                if (-not $Silent) {
+                    Write-Host "Rolling Back Installation..." -ForegroundColor DarkYellow
+                }
+    
+                & "$PSScriptRoot\Uninstall-Link2Root.ps1" `
+                    -Components $Components `
+                    -Force `
+                    -NoOutput `
+                    -NoProgress:$NoProgress `
+                    -Verbose:$VerbosePreference `
+                    -Internal `
+                    -Indentation ($Indentation + 1)
+    
+                Write-Verbose "$(_gis $Indentation)[+] Installation Rollback Complete"
+
+                try {
+                    if ($uninstallRollbackHash) {
+                        Write-Verbose "$(_gis $Indentation)[>] Restoring Previous Installation..."
+                        
+                        if (-not $Silent) {
+                            Write-Host "Restoring Previous Installation..." -ForegroundColor DarkYellow
+                        }
+            
+                        & "$PSScriptRoot\Uninstall-Link2Root.ps1" `
+                            -Rollback $uninstallRollbackHash `
+                            -Force `
+                            -NoOutput `
+                            -NoProgress:$NoProgress `
+                            -Verbose:$VerbosePreference `
+                            -Internal `
+                            -Indentation ($Indentation + 1)
+                        
+                        Write-Verbose "$(_gis $Indentation)[+] Previous Installation Restored"
+                    }
+                }
+                catch {
+                    Write-Verbose "$(_gis $Indentation)[-] Failed to Restore Previous Installation"
+                }
+            }
+            catch {
+                Write-Verbose "$(_gis $Indentation)[-] Installation Rollback Failed"
+            }
         }
     
         if (-not $NoOutput) {
